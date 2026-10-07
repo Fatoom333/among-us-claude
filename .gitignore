@@ -4,3 +4,4 @@ mod/tools/
 bin/
 obj/
 *.user
+video/
