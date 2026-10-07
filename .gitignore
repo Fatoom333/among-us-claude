@@ -1,0 +1,6 @@
+mod/refs/
+mod/refs.zip
+mod/tools/
+bin/
+obj/
+*.user
