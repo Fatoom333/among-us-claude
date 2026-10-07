@@ -1,0 +1,134 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+
+namespace AUBridge;
+
+// Loopback-only newline-delimited JSON server. Game access goes through Runner.Invoke (main thread).
+public static class Bridge
+{
+    const int MaxLine = 8 * 1024, MaxConns = 4, IdleMs = 5 * 60 * 1000;
+    static int _conns;
+    static byte[] _token;
+
+    public static void Start(int port, string token)
+    {
+        _token = token == null ? null : Encoding.UTF8.GetBytes(token);
+        var listener = new TcpListener(IPAddress.Loopback, port);
+        listener.Start(8);
+        Plugin.Logger.LogInfo($"[AUB] bridge listening on 127.0.0.1:{port}");
+        new Thread(() => AcceptLoop(listener)) { IsBackground = true, Name = "AUB-accept" }.Start();
+    }
+
+    static void AcceptLoop(TcpListener l)
+    {
+        while (true)
+        {
+            try
+            {
+                var c = l.AcceptTcpClient();
+                if (Interlocked.Increment(ref _conns) > MaxConns)
+                {
+                    Interlocked.Decrement(ref _conns);
+                    c.Close();
+                    continue;
+                }
+                new Thread(() => Serve(c)) { IsBackground = true, Name = "AUB-conn" }.Start();
+            }
+            catch (Exception e) { Plugin.Logger.LogError("[AUB] accept: " + e.Message); Thread.Sleep(500); }
+        }
+    }
+
+    static void Serve(TcpClient c)
+    {
+        try
+        {
+            c.ReceiveTimeout = IdleMs; c.SendTimeout = 5000; c.NoDelay = true;
+            using var s = c.GetStream();
+            var buf = new byte[MaxLine];
+            int len = 0;
+            var one = new byte[1024];
+            while (true)
+            {
+                int n = s.Read(one, 0, one.Length);
+                if (n <= 0) break;
+                for (int i = 0; i < n; i++)
+                {
+                    byte b = one[i];
+                    if (b == (byte)'\n')
+                    {
+                        Reply(s, Handle(Encoding.UTF8.GetString(buf, 0, len).Trim()));
+                        len = 0;
+                    }
+                    else if (len < MaxLine) buf[len++] = b;
+                    else { Reply(s, Err("line too long")); return; }
+                }
+            }
+        }
+        catch (Exception) { /* closed / timeout */ }
+        finally { try { c.Close(); } catch { } Interlocked.Decrement(ref _conns); }
+    }
+
+    static void Reply(Stream s, object o)
+    {
+        var data = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(o) + "\n");
+        s.Write(data, 0, data.Length);
+    }
+
+    static object Err(string m) => new Dictionary<string, object> { ["ok"] = false, ["error"] = m };
+
+    static object Handle(string line)
+    {
+        try
+        {
+            if (line.Length == 0) return Err("empty");
+            using var doc = JsonDocument.Parse(line, new JsonDocumentOptions { MaxDepth = 4 });
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return Err("bad request");
+
+            if (_token != null)
+            {
+                var t = Str(root, "token");
+                if (t == null || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(t), _token))
+                    return Err("unauthorized");
+            }
+            var cmd = Str(root, "cmd");
+            switch (cmd)
+            {
+                case "state": break;
+                case "host": Plugin.Logger.LogInfo("[AUB] cmd host"); Runner.Invoke(() => Runner.SetMode("host")); break;
+                case "join": Plugin.Logger.LogInfo("[AUB] cmd join"); Runner.Invoke(() => Runner.SetMode("join")); break;
+                case "setname":
+                    {
+                        var n = Validate.Name(Str(root, "name"));
+                        if (n == null) return Err("bad name");
+                        Plugin.Logger.LogInfo("[AUB] cmd setname " + n);
+                        Runner.Invoke(() => Runner.SetName(n));
+                        break;
+                    }
+                case "setcolor":
+                    {
+                        if (!root.TryGetProperty("color", out var cv) || cv.ValueKind != JsonValueKind.Number || !cv.TryGetInt32(out var col) || col < 0 || col > 17)
+                            return Err("bad color");
+                        Plugin.Logger.LogInfo("[AUB] cmd setcolor " + col);
+                        Runner.Invoke(() => Runner.SetColor(col));
+                        break;
+                    }
+                default: return Err("unknown cmd");
+            }
+            return Runner.Invoke(Runner.Snapshot);
+        }
+        catch (JsonException) { return Err("bad json"); }
+        catch (TimeoutException) { return Err("game thread busy"); }
+        catch (Exception e) { Plugin.Logger.LogError("[AUB] handler: " + e); return Err("internal error"); }
+    }
+
+    static string Str(JsonElement o, string k) =>
+        o.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+}

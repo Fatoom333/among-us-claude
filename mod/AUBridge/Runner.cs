@@ -1,0 +1,202 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Threading;
+using AmongUs.Data;
+using InnerNet;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace AUBridge;
+
+// Main-thread MonoBehaviour: drains the command queue and drives menu -> lobby automation.
+public class Runner : MonoBehaviour
+{
+    public Runner(IntPtr ptr) : base(ptr) { }
+
+    static readonly ConcurrentQueue<Action> Queue = new();
+    static string _mode;
+    static string _name;
+    static int _color = -1;
+    static float _nextTick, _lastAct, _searchStart;
+    static float _lastIdentity, _lastAnnounce;
+    static int _nameTries, _colorTries;
+    static bool _searchWarned;
+
+    // ---- cross-thread entry points (called from socket threads) ----
+    public static T Invoke<T>(Func<T> f)
+    {
+        T result = default; Exception err = null;
+        using var done = new ManualResetEventSlim(false);
+        Queue.Enqueue(() => { try { result = f(); } catch (Exception e) { err = e; } finally { done.Set(); } });
+        if (!done.Wait(5000)) throw new TimeoutException();
+        if (err != null) throw err;
+        return result;
+    }
+    public static void Invoke(Action a) => Invoke<object>(() => { a(); return null; });
+
+    // ---- commands (main thread only) ----
+    public static void SetMode(string m) { _mode = m; _lastAct = 0; _searchStart = Time.realtimeSinceStartup; _searchWarned = false; }
+    public static void SetName(string n) { _name = n; _nameTries = 0; _lastIdentity = 0; }
+    public static void SetColor(int c) { _color = c; _colorTries = 0; _lastIdentity = 0; }
+
+    void Awake()
+    {
+        var c = Plugin.Cfg;
+        _mode = c.Mode; _name = c.Name; _color = c.Color; _searchStart = Time.realtimeSinceStartup;
+        Plugin.Logger.LogInfo("[AUB] runner started");
+    }
+
+    void Update()
+    {
+        for (int i = 0; i < 32 && Queue.TryDequeue(out var a); i++) a();
+        float now = Time.realtimeSinceStartup;
+        if (now < _nextTick) return;
+        _nextTick = now + 0.5f;
+        try { Tick(now); }
+        catch (Exception e) { Plugin.Logger.LogError("[AUB] tick: " + e.Message); }
+    }
+
+    static AmongUsClient Client => AmongUsClient.Instance;
+    static bool InGame => Client != null && Client.GameState != InnerNetClient.GameStates.NotJoined;
+
+    static void Tick(float now)
+    {
+        ApplyIdentity(now);
+        CloseAnnouncements(now);
+        if (!InGame) DriveMenu(now);
+    }
+
+    static void ApplyIdentity(float now)
+    {
+        if (!DataManager.IsPlayerLoaded) return;
+        var cust = DataManager.Player.Customization;
+        if (_name != null && cust.Name != _name) cust.Name = _name;
+        if (_color >= 0 && cust.Color != (byte)_color) cust.Color = (byte)_color;
+
+        // In the lobby the networked copy must be updated too; retries are capped so we never fight the host's colour dedup.
+        var lp = PlayerControl.LocalPlayer;
+        if (!InGame || lp == null || lp.Data == null || now - _lastIdentity < 2f) return;
+        _lastIdentity = now;
+        if (_name != null && lp.Data.PlayerName != _name && _nameTries++ < 5) lp.CmdCheckName(_name);
+        if (_color >= 0 && lp.Data.DefaultOutfit != null && lp.Data.DefaultOutfit.ColorId != _color && _colorTries++ < 5)
+            lp.CmdCheckColor((byte)_color);
+    }
+
+    // Announcements popup is closed through its own Close(); it only dismisses, nothing else.
+    static void CloseAnnouncements(float now)
+    {
+        if (now - _lastAnnounce < 1f) return;
+        _lastAnnounce = now;
+        var mm = UnityEngine.Object.FindObjectOfType<MainMenuManager>();
+        var p = mm != null ? mm.announcementPopUp : null;
+        if (p != null && p.gameObject.activeInHierarchy)
+        {
+            Plugin.Logger.LogInfo("[AUB] closing announcements popup");
+            p.Close();
+        }
+    }
+
+    static void DriveMenu(float now)
+    {
+        if ((_mode != "host" && _mode != "join") || now - _lastAct < 3f) return;
+        var mm = UnityEngine.Object.FindObjectOfType<MainMenuManager>();
+        if (mm == null || !mm.finishStartup) return;
+
+        if (_mode == "host")
+        {
+            var hb = UnityEngine.Object.FindObjectOfType<HostLocalGameButton>();
+            if (hb != null && hb.isActiveAndEnabled)
+            {
+                ForceHostOptions();
+                Plugin.Logger.LogInfo("[AUB] host: HostLocalGameButton.OnClick");
+                _lastAct = now + 15f; // let the connect coroutine finish before retrying
+                hb.OnClick();
+                return;
+            }
+        }
+        else
+        {
+            foreach (var jb in UnityEngine.Object.FindObjectsOfType<JoinGameButton>())
+            {
+                if (!jb.isActiveAndEnabled || string.IsNullOrEmpty(jb.netAddress)) continue;
+                Plugin.Logger.LogInfo("[AUB] join: JoinGameButton.OnClick " + jb.netAddress);
+                _lastAct = now + 10f;
+                jb.OnClick();
+                return;
+            }
+            if (!_searchWarned && now - _searchStart > 120f)
+            {
+                _searchWarned = true;
+                Plugin.Logger.LogWarning("[AUB] join: no local game found after 120s, still trying");
+            }
+        }
+        // Local screen is not open yet: press the main-menu "Local" button.
+        if (mm.playLocalButton != null)
+        {
+            Plugin.Logger.LogInfo("[AUB] opening local game screen");
+            _lastAct = now;
+            mm.playLocalButton.OnClick.Invoke();
+        }
+    }
+
+    static void ForceHostOptions()
+    {
+        try
+        {
+            var g = GameOptionsManager.Instance;
+            foreach (var o in new[] { g.normalGameHostOptions, g.currentNormalGameOptions })
+            {
+                if (o == null) continue;
+                o._MapId_k__BackingField = 0;          // The Skeld
+                o._MaxPlayers_k__BackingField = 15;
+            }
+        }
+        catch (Exception e) { Plugin.Logger.LogWarning("[AUB] could not set host options: " + e.Message); }
+    }
+
+    // ---- state snapshot (main thread) ----
+    public static object Snapshot()
+    {
+        string stage = "menu";
+        if (Client != null && Client.GameState == InnerNetClient.GameStates.Started) stage = "ingame";
+        else if (InGame) stage = "lobby";
+        else if (_mode == "join") stage = "searching";
+
+        string name = _name; int color = _color;
+        if (DataManager.IsPlayerLoaded) { name = DataManager.Player.Customization.Name; color = DataManager.Player.Customization.Color; }
+
+        var players = new List<object>();
+        var lp = PlayerControl.LocalPlayer;
+        var gd = GameData.Instance;
+        if (InGame && gd != null && gd.AllPlayers != null)
+        {
+            for (int i = 0; i < gd.AllPlayers.Count; i++)
+            {
+                var p = gd.AllPlayers[i];
+                if (p == null) continue;
+                players.Add(new Dictionary<string, object>
+                {
+                    ["name"] = p.PlayerName,
+                    ["color"] = p.DefaultOutfit != null ? p.DefaultOutfit.ColorId : -1,
+                    ["isLocal"] = lp != null && p.PlayerId == lp.PlayerId,
+                });
+            }
+            if (lp != null && lp.Data != null) { name = lp.Data.PlayerName; if (lp.Data.DefaultOutfit != null) color = lp.Data.DefaultOutfit.ColorId; }
+        }
+        else if (name != null)
+            players.Add(new Dictionary<string, object> { ["name"] = name, ["color"] = color, ["isLocal"] = true });
+
+        return new Dictionary<string, object>
+        {
+            ["ok"] = true,
+            ["id"] = Plugin.Cfg.Id,
+            ["scene"] = SceneManager.GetActiveScene().name,
+            ["mode"] = _mode,
+            ["stage"] = stage,
+            ["name"] = name,
+            ["color"] = color,
+            ["players"] = players,
+        };
+    }
+}
