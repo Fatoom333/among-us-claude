@@ -19,9 +19,12 @@ public static class Bridge
 
     public static void Start(int port, string token)
     {
-        _token = token == null ? null : Encoding.UTF8.GetBytes(token);
+        // Fail closed: without a token the bridge is not opened at all (no unauthenticated control of the game).
+        if (string.IsNullOrEmpty(token) || token.Length < 16) { Plugin.Logger.LogError("[AUB] no --aub-token (>=16 chars): bridge NOT started"); return; }
+        _token = Encoding.UTF8.GetBytes(token);
         var listener = new TcpListener(IPAddress.Loopback, port);
-        listener.Start(8);
+        try { listener.Start(8); }
+        catch (Exception e) { Plugin.Logger.LogError($"[AUB] bridge could not listen on 127.0.0.1:{port}: {e.Message}"); return; }
         Plugin.Logger.LogInfo($"[AUB] bridge listening on 127.0.0.1:{port}");
         new Thread(() => AcceptLoop(listener)) { IsBackground = true, Name = "AUB-accept" }.Start();
     }
@@ -92,12 +95,9 @@ public static class Bridge
             var root = doc.RootElement;
             if (root.ValueKind != JsonValueKind.Object) return Err("bad request");
 
-            if (_token != null)
-            {
-                var t = Str(root, "token");
-                if (t == null || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(t), _token))
-                    return Err("unauthorized");
-            }
+            var t = Str(root, "token");
+            if (_token == null || t == null || !CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(t), _token))
+                return Err("unauthorized");
             var cmd = Str(root, "cmd");
             switch (cmd)
             {
@@ -123,7 +123,8 @@ public static class Bridge
                 case "configure":
                     {
                         Plugin.Logger.LogInfo("[AUB] cmd configure");
-                        var opts = Runner.Invoke(() => Game.Configure(root));
+                        var cr = root.Clone(); // the queued call may outlive this handler (timeout) and the JsonDocument
+                        var opts = Runner.Invoke(() => Game.Configure(cr));
                         var snap = (Dictionary<string, object>)Runner.Invoke(Runner.Snapshot);
                         snap["options"] = opts;
                         return snap;

@@ -60,7 +60,7 @@ public static class Validate
     }
 }
 
-[BepInPlugin(PluginId, "AUBridge", "0.4.0")]
+[BepInPlugin(PluginId, "AUBridge", "0.4.1")]
 [BepInProcess("Among Us.exe")]
 [BepInDependency(ReactorPlugin.Id)]
 public class Plugin : BasePlugin

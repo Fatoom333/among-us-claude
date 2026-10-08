@@ -266,12 +266,31 @@ public static partial class Body
 
     // ---------------- call_meeting ----------------
     static float _cmArrivedAt;
+
+    // The same rules the emergency-button screen enforces: no meetings left, crisis sabotage, round start / cooldown.
+    static string ButtonBlocked(PlayerControl me)
+    {
+        if (me.Data.IsDead) return "you are dead";
+        if (me.RemainingEmergencies <= 0) return "no emergency meetings left";
+        var tl = me.myTasks;
+        for (int i = 0; tl != null && i < tl.Count; i++)
+        {
+            bool crisis = false;
+            try { crisis = tl[i] != null && PlayerTask.TaskIsEmergency(tl[i]); } catch { }
+            if (crisis) return "emergency meetings cannot be called during a crisis";
+        }
+        var ship = ShipStatus.Instance;
+        float wait = Math.Max(EmergencyMinigame.MinEmergencyTime - ship.Timer, ship.EmergencyCooldown);
+        if (wait > 0f) return $"emergency button cooldown {wait:0.0}s left";
+        return null;
+    }
+
     static void StartCallMeeting()
     {
         var me = Me;
-        if (me.Data.IsDead) throw new BridgeError("you are dead");
         if (me.inVent) throw new BridgeError("you are in a vent");
-        if (me.RemainingEmergencies <= 0) throw new BridgeError("no emergency meetings left");
+        var blocked = ButtonBlocked(me);
+        if (blocked != null) throw new BridgeError(blocked);
         var btn = ShipStatus.Instance.EmergencyButton;
         if (btn == null) throw new BridgeError("no emergency button");
         Vector2 g = btn.transform.position;
@@ -289,6 +308,13 @@ public static partial class Body
         {
             if (!can) Plugin.Logger.LogWarning("[AUB] button: CanUse false at arrival, pressing anyway");
             Desired = Vector2.zero;
+            var blocked = ButtonBlocked(me); // things may have changed on the way (crisis sabotage, meeting used up)
+            if (blocked != null || Vector2.Distance(pos, (Vector2)btn.transform.position) > 2.2f)
+            {
+                Plugin.Logger.LogWarning("[AUB] call_meeting refused at the button: " + (blocked ?? "too far"));
+                Events.Add("button_refused", "reason", blocked ?? "too far from the button");
+                _kind = "stay"; return;
+            }
             try { me.CmdReportDeadBody(null); } catch (Exception e) { Plugin.Logger.LogWarning("[AUB] call_meeting failed: " + e.Message); }
             Events.Add("button_pressed", "room", Game.RoomAt(pos));
             _kind = "stay"; return;

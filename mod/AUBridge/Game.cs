@@ -44,12 +44,12 @@ public static class Game
     static float _roomCandAt;
 
     // meeting
-    static bool _inMeeting, _votingAnnounced, _pend, _proceeded; static string _pendCaller, _pendBody; static float _resultsAt, _proceedAt;
+    static bool _inMeeting, _votingAnnounced, _pend; static string _pendCaller, _pendBody; static float _resultsAt, _proceedAt;
     static float _noMeetingSince;
     static readonly HashSet<byte> _voted = new();
     static readonly List<Dictionary<string, object>> _chat = new();
     static string _meetCaller, _meetBody, _exiledName; static bool _exiledImp, _tie, _exiledSet, _exiledMe;
-    static Dictionary<string, string> _results;
+    static object _results;
 
     static void Warn(string m)
     {
@@ -77,9 +77,15 @@ public static class Game
         try { return ShipStatus.Instance.CalculateLightRadius(me.Data); } catch { return 3f; }
     }
 
-    // What the light would show: inside radius and no wall between. Ghosts see everyone (checked by callers).
+    // What the light would show: inside radius and no wall between.
     static bool Lit(Vector2 a, float radius, Vector2 b) =>
         Vector2.Distance(a, b) <= radius && !PhysicsHelpers.AnythingBetween(a, b, Constants.ShadowMask, false);
+
+    // A ghost has no shadows and no light limit, but still only sees its own screen (16:9, orthographic size 3),
+    // not the whole map: otherwise a dead agent would watch every kill and vent on the ship.
+    const float GhostHalfW = 5.4f, GhostHalfH = 3.1f;
+    static bool OnScreen(Vector2 a, Vector2 b) => Mathf.Abs(b.x - a.x) <= GhostHalfW && Mathf.Abs(b.y - a.y) <= GhostHalfH;
+    internal static bool Sees(PlayerControl me, Vector2 a, float radius, Vector2 b) => me.Data.IsDead ? OnScreen(a, b) : Lit(a, radius, b);
 
     static PInfo Mk(PlayerControl p, Vector2 a)
     {
@@ -103,7 +109,7 @@ public static class Game
             if (p == null || p.Data == null || p.PlayerId == me.PlayerId || p.Data.Disconnected || p.inVent) continue;
             if (p.Data.IsDead && !ghost) continue; // corpses are DeadBody objects
             var info = Mk(p, a);
-            if (ghost || Lit(a, radius, info.Pos)) res.Add(info);
+            if (ghost ? OnScreen(a, info.Pos) : Lit(a, radius, info.Pos)) res.Add(info);
         }
         return res;
     }
@@ -121,7 +127,7 @@ public static class Game
         {
             if (b == null || b.Reported) continue;
             var pos = b.TruePosition;
-            if (!ghost && !Lit(a, radius, pos)) continue;
+            if (ghost ? !OnScreen(a, pos) : !Lit(a, radius, pos)) continue;
             var d = GameData.Instance.GetPlayerById(b.ParentId);
             res.Add(new BInfo
             {
@@ -305,7 +311,7 @@ public static class Game
             var mode = GameManager.Instance.LogicOptions.GetTaskBarMode();
             bool show = mode == TaskBarMode.Normal || (mode == TaskBarMode.MeetingOnly && MeetingHud.Instance != null);
             var gd = GameData.Instance;
-            if (show && gd != null && gd.TotalTasks > 0) taskBar = R((float)gd.CompletedTasks / gd.TotalTasks);
+            if (show && gd != null && gd.TotalTasks > 0 && Sabotage().type != "comms") taskBar = R((float)gd.CompletedTasks / gd.TotalTasks);
         }
         catch { }
         var sab = Sabotage();
@@ -323,7 +329,7 @@ public static class Game
                 ["canVent"] = d.Role != null && d.Role.CanVent, ["inVent"] = me.inVent, ["partner"] = Partner(me),
             },
             ["tasks"] = Tasks(me), ["taskBar"] = taskBar, ["visible"] = vis, ["bodies"] = bodies,
-            ["sabotage"] = new Dictionary<string, object> { ["active"] = sab.type, ["timer"] = sab.timer, ["cooldown"] = SabotageCooldown() },
+            ["sabotage"] = new Dictionary<string, object> { ["active"] = sab.type, ["timer"] = sab.timer, ["cooldown"] = imp ? SabotageCooldown() : 0.0 },
             ["meeting"] = MeetingState(), ["busy"] = Body.Busy(), ["body"] = Body.Info(), ["reflexes"] = Body.ReflexInfo(), ["vents"] = Body.VentsForState(me, a, radius),
         };
     }
@@ -546,20 +552,29 @@ public static class Game
         _exiledName = exiled != null ? exiled.PlayerName : null;
         _exiledImp = exiled != null && exiled.Role != null && exiled.Role.IsImpostor;
         _exiledMe = exiled != null && Me != null && exiled.PlayerId == Me.PlayerId;
+        // With anonymous votes the game shows only how many votes each one got, never who cast them.
+        bool anon = false;
+        try { anon = GameOptionsManager.Instance.CurrentGameOptions.GetBool(AmongUs.GameOptions.BoolOptionNames.AnonymousVotes); } catch { anon = true; }
         var res = new Dictionary<string, string>();
+        var counts = new Dictionary<string, int>();
         if (states != null)
             foreach (var s in states)
             {
                 var from = NameOf(s.VoterId);
                 if (from == null) continue;
-                res[from] = s.VotedForId == PlayerVoteArea.SkippedVote ? "skip" : (NameOf(s.VotedForId) ?? "skip");
+                var to = s.VotedForId == PlayerVoteArea.SkippedVote ? "skip" : (NameOf(s.VotedForId) ?? "skip");
+                res[from] = to;
+                counts[to] = counts.TryGetValue(to, out var k) ? k + 1 : 1;
             }
-        _results = res;
+        _results = anon ? new Dictionary<string, object> { ["anonymous"] = true, ["counts"] = counts } : res;
     }
 
     public static void OnChat(PlayerControl src, string text)
     {
         if (src == null || src.Data == null || text == null) return;
+        var me = Me;
+        if (me == null || me.Data == null) return;
+        if (src.Data.IsDead && !me.Data.IsDead) return; // ghost chat is invisible to the living
         if (text.Length > 200) text = text.Substring(0, 200);
         var e = new Dictionary<string, object> { ["from"] = src.Data.PlayerName, ["text"] = text };
         if (_inMeeting) _chat.Add(e);
@@ -586,7 +601,7 @@ public static class Game
             return;
         }
         var a = me.GetTruePosition(); float r = LightRadius(me);
-        bool visible = me.Data.IsDead || Lit(a, r, vpos) || Lit(a, r, kpos);
+        bool visible = Sees(me, a, r, vpos) || Sees(me, a, r, kpos);
         if (visible)
         {
             Events.Add("saw_kill", "killer", killer.Data.PlayerName, "victim", victim.Data.PlayerName, "room", RoomAt(vpos));
@@ -598,7 +613,7 @@ public static class Game
     {
         if (!_started || pc == null || pc.Data == null || Me == null || pc.PlayerId == Me.PlayerId) return;
         var a = Me.GetTruePosition();
-        if (Me.Data.IsDead || Lit(a, LightRadius(Me), pc.GetTruePosition()))
+        if (Sees(Me, a, LightRadius(Me), pc.GetTruePosition()))
             Events.Add("saw_vent", "name", pc.Data.PlayerName, "vent", vent != null ? vent.Id : -1, "action", enter ? "enter" : "exit");
     }
 
