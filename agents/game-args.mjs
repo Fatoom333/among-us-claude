@@ -35,6 +35,7 @@ const seatsWanted = list(opt('seats') ?? '2-10');
 const autopilot = opt('autopilot') ? list(opt('autopilot')) : [];
 
 let gameId = opt('game-id');
+if (gameId !== undefined && !/^[A-Za-z0-9-]{1,40}$/.test(gameId)) { console.error('плохой --game-id (только латиница, цифры, дефис)'); process.exit(2); }
 if (!gameId) {
   const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const gdir = path.join(root, 'games');
@@ -61,6 +62,7 @@ for (const seat of seatsWanted) {
 }
 
 const impostors = Number(opt('impostors') ?? 2);
+if (!Number.isInteger(impostors) || impostors < 1 || impostors > 3) { console.error('--impostors: 1..3'); process.exit(2); }
 const out = { gameId, players, setup: !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
 process.stdout.write(JSON.stringify(out) + '\n');
 console.error(`game ${gameId}: ${players.length} игроков (${players.map(p => p.name + '#' + p.seat).join(', ')}), автопилот: [${autopilot}]`);
