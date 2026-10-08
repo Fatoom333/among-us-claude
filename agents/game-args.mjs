@@ -79,7 +79,9 @@ for (const seat of seatsWanted) {
   if (!key) { console.error('в seats.json нет ключа места ' + seat); process.exit(1); }
   const personality = fs.readFileSync(path.join(root, r.file), 'utf8');
   const memFile = path.join(dir, 'memory', r.name.toLowerCase() + '.md');
-  const memory = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf8') : '(первая партия: памяти пока нет)';
+  let memory = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf8') : '(первая партия: памяти пока нет)';
+  // the brief must fit the server limit (MAX_BRIEF in mcp/core.py): memory files are structured by sections, so keep the head
+  if (memory.length > 6000) memory = memory.slice(0, 6000) + '\n(дальше обрезано)';
   briefs[seat] = template
     .split('{{NAME}}').join(ruOf(r)).split('{{TABLE}}').join(table).split('{{PLAYER}}').join(String(seat))
     .split('{{KEY}}').join('<ключ из задания>')
