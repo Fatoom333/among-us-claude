@@ -45,7 +45,10 @@ if (!gameId) {
 
 let keys;
 try {
-  const txt = execFileSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'pc', 'type', 'D:/AmongUs-tools/bridge/seats.json'], { encoding: 'utf8' });
+  const onPc = String(process.env.COMPUTERNAME || '').toUpperCase() === 'STAND-PC';
+  const txt = onPc
+    ? fs.readFileSync('D:/AmongUs-tools/bridge/seats.json', 'utf8')
+    : execFileSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'pc', 'type', 'D:/AmongUs-tools/bridge/seats.json'], { encoding: 'utf8' });
   keys = JSON.parse(txt.replace(/^\uFEFF/, ''));
 } catch (e) {
   console.error('не удалось прочитать seats.json на ПК (ssh pc): ' + String(e.message).split('\n')[0]);
@@ -58,11 +61,15 @@ for (const seat of seatsWanted) {
   if (!r) { console.error('в roster-current.json нет места ' + seat); process.exit(1); }
   const key = keys[String(seat)];
   if (!key) { console.error('в seats.json нет ключа места ' + seat); process.exit(1); }
-  players.push({ seat, name: r.name, file: r.file, key });
+  const personality = fs.readFileSync(path.join(root, r.file), 'utf8');
+  const memFile = path.join(dir, 'memory', r.name.toLowerCase() + '.md');
+  const memory = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf8') : '(первая партия: памяти пока нет)';
+  players.push({ seat, name: r.name, key, personality, memory });
 }
 
 const impostors = Number(opt('impostors') ?? 2);
 if (!Number.isInteger(impostors) || impostors < 1 || impostors > 3) { console.error('--impostors: 1..3'); process.exit(2); }
-const out = { gameId, players, setup: !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
+const playerPrompt = fs.readFileSync(path.join(dir, 'player-prompt.md'), 'utf8');
+const out = { gameId, playerPrompt, players, setup: !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
 process.stdout.write(JSON.stringify(out) + '\n');
 console.error(`game ${gameId}: ${players.length} игроков (${players.map(p => p.name + '#' + p.seat).join(', ')}), автопилот: [${autopilot}]`);

@@ -1,10 +1,10 @@
 export const meta = {
   name: 'among-us-game',
-  description: 'Партия Among Us: крупье готовит лобби и старт, 9 агентов-игроков параллельно, затем летописец',
-  whenToUse: 'Запуск одной партии на стенде; args = {gameId, players:[{seat,name,file,key}], setup:bool, impostors:int, autopilotSeats:[...]}',
+  description: 'Партия Among Us: крупье готовит лобби и старт, 9 агентов-игроков (au-player, только MCP au) параллельно, затем летописец',
+  whenToUse: 'Запуск одной партии на стенде; args — вывод node agents/game-args.mjs',
   phases: [
     { title: 'Setup', detail: 'крупье: лобби на 10, configure, autopilot, start', model: 'sonnet' },
-    { title: 'Play', detail: 'игроки (sonnet) играют через scripts/au.ps1', model: 'sonnet' },
+    { title: 'Play', detail: 'игроки au-player: только инструменты MCP au_*', model: 'sonnet' },
     { title: 'Chronicle', detail: 'летописец: сводка партии и память', model: 'sonnet' },
   ],
 }
@@ -17,26 +17,26 @@ const RESULT = {
     alive_at_end: { type: 'boolean' },
     summary: { type: 'string' },
     notable: { type: 'array', items: { type: 'string' } },
+    memory: { type: 'string', description: '3–8 строк на будущие партии' },
   },
-  required: ['name', 'role', 'alive_at_end', 'summary', 'notable'],
+  required: ['name', 'role', 'alive_at_end', 'summary', 'notable', 'memory'],
 }
-
 const SETUP = {
   type: 'object',
   properties: { ok: { type: 'boolean' }, step: { type: 'string' }, detail: { type: 'string' } },
   required: ['ok', 'step'],
 }
-
 const CHRONICLE = {
   type: 'object',
   properties: { summaryPath: { type: 'string' } },
   required: ['summaryPath'],
 }
 
-// args: {gameId, players:[{seat,name,file,key}], setup, impostors, autopilotSeats}
-const { gameId, players, setup, impostors, autopilotSeats } = args
-// everything below is pasted into ssh command lines: accept only plain integers and a plain game id
+// args: {gameId, playerPrompt, players:[{seat,name,key,personality,memory}], setup, impostors, autopilotSeats}
+const { gameId, playerPrompt, players, setup, impostors, autopilotSeats } = args
+// everything below that reaches a command line is validated: plain integers and a plain game id only
 if (!/^[A-Za-z0-9-]{1,40}$/.test(String(gameId))) throw new Error('bad gameId')
+if (typeof playerPrompt !== 'string' || !playerPrompt.includes('{{KEY}}')) throw new Error('bad playerPrompt')
 const IMP = Number.isInteger(impostors) && impostors >= 1 && impostors <= 3 ? impostors : 2
 const AUTO = (autopilotSeats || []).filter(x => Number.isInteger(x) && x >= 1 && x <= 10)
 for (const p of players) {
@@ -44,35 +44,40 @@ for (const p of players) {
     throw new Error('bad player entry for seat ' + p.seat)
 }
 
+// The same command runs on the PC directly and on the laptop through ssh.
+const PY = 'D:/AmongUs-tools/mcp/.venv/Scripts/python.exe'
+const WHERE = 'Узнай машину: $env:COMPUTERNAME. На STAND-PC (это ПК со стендом) запускай команду напрямую; на любой другой — через ssh pc "<команда>" (ssh только из инструмента PowerShell).'
+
 if (setup) {
   phase('Setup')
-  const cmd = 'ssh pc "D:/AmongUs-tools/mcp/.venv/Scripts/python.exe D:/AmongUs-tools/setup_game.py --expect 10 --impostors ' + IMP +
-    ' --autopilot ' + AUTO.join(',') + ' --wait 420"'
+  const cmd = PY + ' D:/AmongUs-tools/setup_game.py --expect 10 --impostors ' + IMP + ' --autopilot ' + AUTO.join(',') + ' --wait 420'
   const s = await agent([
-    'Ты крупье партии Among Us (gameId ' + gameId + '). Запусти ОДНУ команду через инструмент PowerShell (ssh только из него) и верни результат:',
-    cmd,
+    'Ты крупье партии Among Us (gameId ' + gameId + '). Выполни ОДНУ команду через инструмент PowerShell и верни результат.',
+    WHERE,
+    'Команда: ' + cmd,
     'Скрипт ждёт до 7 минут, пока в лобби соберутся все 10, настраивает партию, включает автопилот и стартует игру; в конце печатает одну строку JSON. Тайм-аут инструмента поставь 600000 мс.',
-    'Если команда не завершилась за один вызов или вернула ok:false, не запускай её повторно сам и не чини ничего: просто верни ok:false, step и текст ошибки в detail. При ok:true верни step и в detail саму строку JSON.',
+    'Если команда не завершилась за один вызов или вернула ok:false, не запускай её повторно и ничего не чини: верни ok:false, step и текст ошибки в detail. При ok:true верни step и в detail саму строку JSON.',
     'Ничего другого не делай, никакие файлы не читай.',
   ].join('\n'), { label: 'Крупье', phase: 'Setup', model: 'sonnet', schema: SETUP })
   log('Setup: ' + JSON.stringify(s))
   if (!s || !s.ok) return { aborted: true, setup: s }
 }
 
-function launch(p) {
-  return [
-    'Прочитай agents/player-prompt.md (Read) и играй по нему. Рабочая папка проекта: C:/Users/<user>/Claude work/Among Us.',
-    'Твоё имя: ' + p.name + '. Твоё место: player=' + p.seat + '. Твой ключ места: key="' + p.key + '" (секрет, никому и никуда его не пиши).',
-    'Файл характера: ' + p.file + '. Файл памяти (если существует): agents/memory/' + p.name.toLowerCase() + '.md. Файл сводки для собраний: agents/memory/' + p.name + '-current.md.',
-    'Сразу после чтения файлов начинай цикл wait. Игра идёт, не жди разрешений.',
-  ].join('\n')
+function fill(p) {
+  return playerPrompt
+    .split('{{NAME}}').join(p.name)
+    .split('{{PLAYER}}').join(String(p.seat))
+    .split('{{KEY}}').join(p.key)
+    .split('{{PERSONALITY}}').join(p.personality || '')
+    .split('{{MEMORY}}').join(p.memory || '(памяти нет)')
 }
 
 phase('Play')
 const results = (await parallel(players.map(p => () =>
-  agent(launch(p), {
+  agent(fill(p), {
     label: p.name + ' (место ' + p.seat + ')',
     phase: 'Play',
+    agentType: 'au-player',
     model: 'sonnet',
     schema: RESULT,
   }),
@@ -83,15 +88,15 @@ phase('Chronicle')
 const names = players.map(p => p.name).join(', ')
 const prompt = [
   'Ты летописец партии Among Us (gameId ' + gameId + '). Игроки: ' + names + '.',
-  'Итоги игроков (JSON):',
+  'Итоги игроков (JSON; поле memory — что игрок сам хочет помнить):',
   JSON.stringify(results, null, 1),
   '',
   'Задача:',
-  '1) Прочитай логи партии на ПК. Только через инструмент PowerShell: ssh pc "type D:/AmongUs-tools/games/' + gameId + '/*.jsonl" (или по файлу: ssh pc "type D:/AmongUs-tools/games/' + gameId + '/p2.jsonl"; host-лог с позициями большой, читай выборочно). Логи для тебя после игры; в них позиции и события всех. Токены и ключи мест не читай и не печатай.',
-  '2) Напиши games/' + gameId + '.md в проекте C:/Users/<user>/Claude work/Among Us: живая сводка для ролика: кто были импосторы, хронология убийств/собраний/голосов, ключевые моменты и неожиданные повороты, лучшие реплики (дословно из чата), как проявлялись характеры. По-русски, живо, с таймкодами. Не выдумывай того, чего нет в логах и итогах.',
-  '3) Каждому игроку допиши agents/memory/<имя строчными>.md по формату agents/memory/README.md (создай, если нет): счётчик партий, впечатления о других, удачные/провальные ходы, язык жестов, счёты. Учитывай также agents/memory/<Имя>-current.md, если есть. Файлы -current.md после этого удали.',
+  '1) Прочитай логи партии: папка D:/AmongUs-tools/games/' + gameId + '/ (p<id>.jsonl и god.jsonl с позициями — большой, читай выборочно). ' + WHERE + ' Пример: Get-Content D:/AmongUs-tools/games/' + gameId + '/p2.jsonl. Токены, ключи мест и seats.json не читай.',
+  '2) Напиши games/' + gameId + '.md в корне проекта (рабочая папка): живая сводка для ролика — кто были импосторы, хронология убийств/собраний/голосов, ключевые моменты и повороты, лучшие реплики (дословно из чата), как проявлялись характеры. По-русски, с таймкодами. Не выдумывай того, чего нет в логах и итогах.',
+  '3) Каждому игроку допиши agents/memory/<имя строчными>.md по формату agents/memory/README.md (создай, если нет): счётчик партий, впечатления о других, удачные/провальные ходы, язык жестов, счёты. Опирайся на поле memory из его итога и на логи.',
   '4) Верни путь к сводке.',
 ].join('\n')
 
 const chron = await agent(prompt, { label: 'Летописец', phase: 'Chronicle', model: 'sonnet', schema: CHRONICLE })
-return { summaryPath: chron ? chron.summaryPath : null, results }
+return { summaryPath: chron ? chron.summaryPath : null, results: results.map(r => ({ name: r.name, role: r.role, alive_at_end: r.alive_at_end, summary: r.summary })) }

@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "au": {
-      "command": "ssh",
-      "args": ["-o", "BatchMode=yes", "-o", "ServerAliveInterval=15", "pc", "D:/AmongUs-tools/mcp/.venv/Scripts/python.exe", "D:/AmongUs-tools/mcp/server.py"]
+      "command": "cmd",
+      "args": ["/d", "/q", "/c", "scripts\\au-mcp.cmd"]
     }
   }
 }
