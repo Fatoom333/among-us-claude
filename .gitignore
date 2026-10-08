@@ -5,3 +5,4 @@ bin/
 obj/
 *.user
 video/
+__pycache__/
