@@ -44,7 +44,7 @@ public static class Game
     static float _roomCandAt;
 
     // meeting
-    static bool _inMeeting, _votingAnnounced;
+    static bool _inMeeting, _votingAnnounced, _pend, _proceeded; static string _pendCaller, _pendBody; static float _resultsAt, _proceedAt;
     static float _noMeetingSince;
     static readonly HashSet<byte> _voted = new();
     static readonly List<Dictionary<string, object>> _chat = new();
@@ -108,8 +108,8 @@ public static class Game
         return res;
     }
 
-    sealed class BInfo { public byte Id; public string Name; public int Color; public Vector2 Pos; public string Room; public float Dist; }
-    static List<BInfo> Bodies(PlayerControl me, Vector2 a, float radius)
+    internal sealed class BInfo { public byte Id; public string Name; public int Color; public Vector2 Pos; public string Room; public float Dist; }
+    internal static List<BInfo> Bodies(PlayerControl me, Vector2 a, float radius)
     {
         var res = new List<BInfo>();
         bool anyDead = false;
@@ -147,7 +147,7 @@ public static class Game
     internal static bool AmImpostor(PlayerControl me) => me.Data.Role != null && me.Data.Role.IsImpostor;
 
     // Partner is only ever looked up when the local player is an impostor (the game shows teammates to impostors anyway).
-    static string Partner(PlayerControl me)
+    internal static string Partner(PlayerControl me)
     {
         if (!AmImpostor(me)) return null;
         var all = PlayerControl.AllPlayerControls;
@@ -196,7 +196,7 @@ public static class Game
         return res;
     }
 
-    static (string type, double timer) Sabotage()
+    internal static (string type, double timer) Sabotage()
     {
         var sys = ShipStatus.Instance.Systems;
         ISystemType s;
@@ -233,7 +233,7 @@ public static class Game
         return "tasks";
     }
 
-    static string NameOf(byte id)
+    internal static string NameOf(byte id)
     {
         var d = GameData.Instance != null ? GameData.Instance.GetPlayerById(id) : null;
         return d != null ? d.PlayerName : null;
@@ -319,12 +319,12 @@ public static class Game
             {
                 ["name"] = d.PlayerName, ["color"] = d.DefaultOutfit != null ? d.DefaultOutfit.ColorId : -1, ["alive"] = !d.IsDead,
                 ["role"] = RoleName(d), ["pos"] = P(a), ["room"] = RoomAt(a),
-                ["killCooldown"] = imp ? R(Math.Max(0, me.killTimer)) : 0.0,
+                ["killCooldown"] = imp ? R(Math.Max(0, me.killTimer)) : 0.0, ["killRange"] = imp ? R(Body.KillRange()) : 0.0,
                 ["canVent"] = d.Role != null && d.Role.CanVent, ["inVent"] = me.inVent, ["partner"] = Partner(me),
             },
             ["tasks"] = Tasks(me), ["taskBar"] = taskBar, ["visible"] = vis, ["bodies"] = bodies,
             ["sabotage"] = new Dictionary<string, object> { ["active"] = sab.type, ["timer"] = sab.timer, ["cooldown"] = SabotageCooldown() },
-            ["meeting"] = MeetingState(), ["busy"] = Body.Busy(), ["body"] = Body.Info(), ["reflexes"] = new List<object>(),
+            ["meeting"] = MeetingState(), ["busy"] = Body.Busy(), ["body"] = Body.Info(), ["reflexes"] = Body.ReflexInfo(), ["vents"] = Body.VentsForState(me, a, radius),
         };
     }
 
@@ -340,7 +340,7 @@ public static class Game
 
     static void ResetMatch()
     {
-        _started = false; _ended = false; _inMeeting = false; _votingAnnounced = false; _allDoneSent = false; _wasDead = false; _deathSent = false;
+        _pend = false; _started = false; _ended = false; _inMeeting = false; _votingAnnounced = false; _allDoneSent = false; _wasDead = false; _deathSent = false;
         Body.OnMatchReset();
         _stable.Clear(); _lastRaw.Clear(); _lastInfo.Clear(); _seenBodies.Clear(); _taskDone.Clear(); _voted.Clear(); _chat.Clear();
         _room = _roomCand = _sabType = null; _shipSeenAt = 0; _exiledSet = false; _results = null; _meetCaller = _meetBody = null;
@@ -471,7 +471,23 @@ public static class Game
         if (m != null)
         {
             _noMeetingSince = 0;
-            if (!_inMeeting) BeginMeeting(NameOf(m.reporterId), null);
+            if (!_inMeeting)
+            {
+                string rb = null;
+                BeginMeeting(_pend ? _pendCaller : NameOf(m.reporterId), _pend ? _pendBody : rb);
+                _pend = false; _resultsAt = 0; _proceedAt = 0;
+            }
+            // The results screen waits for the host's "Proceed" button; with nobody at the keyboard the mod presses it.
+            if (m.state >= MeetingHud.VoteStates.Results)
+            {
+                if (_resultsAt == 0) _resultsAt = now;
+                if (now - _resultsAt > 4f && now - _proceedAt > 3f && Client != null && Client.AmHost)
+                {
+                    _proceedAt = now;
+                    try { m.HandleProceed(); Plugin.Logger.LogInfo("[AUB] host: HandleProceed"); } catch (Exception e) { Warn("HandleProceed: " + e.Message); }
+                }
+            }
+            else _resultsAt = 0;
             if (m.state >= MeetingHud.VoteStates.NotVoted && !_votingAnnounced) { _votingAnnounced = true; Events.Add("voting_started"); }
             if (m.state < MeetingHud.VoteStates.Results && m.playerStates != null)
                 for (int i = 0; i < m.playerStates.Length; i++)
@@ -486,11 +502,24 @@ public static class Game
         if (ExileController.Instance != null) { _noMeetingSince = 0; return; }
         if (_noMeetingSince == 0) { _noMeetingSince = now; return; }
         if (now - _noMeetingSince < 0.5f) return;
+        EmitMeetingEnded();
+        _stable.Clear(); _lastRaw.Clear(); _roomCand = _room = null; // everyone moved; sightings restart
+    }
+
+    static void EmitMeetingEnded()
+    {
         _inMeeting = false;
         var ev = new List<object> { "ejected", _exiledSet && !_tie ? _exiledName : null, "tie", _tie };
         if (_exiledSet && !_tie && GetConfirm()) { ev.Add("wasImpostor"); ev.Add(_exiledImp); }
         Events.Add("meeting_ended", ev.ToArray());
-        _stable.Clear(); _lastRaw.Clear(); _roomCand = _room = null; // everyone moved; sightings restart
+    }
+
+    // Votes are secret until the results; this fires when the game itself processes a vote on this client (if it does).
+    public static void OnVoteCast(byte src)
+    {
+        if (!_inMeeting || !_voted.Add(src)) return;
+        var nm = NameOf(src);
+        if (nm != null) Events.Add("vote_cast", "from", nm);
     }
 
     static bool GetConfirm() { try { return GameManager.Instance.LogicOptions.GetConfirmImpostor(); } catch { return false; } }
@@ -498,7 +527,7 @@ public static class Game
     static void BeginMeeting(string caller, string body)
     {
         _inMeeting = true; _votingAnnounced = false; _voted.Clear(); _chat.Clear(); _results = null; _exiledSet = false; _tie = false;
-        _meetCaller = caller; _meetBody = body;
+        _meetCaller = caller; _meetBody = body; Body.ResetVote();
         _stable.Clear(); _lastRaw.Clear(); _seenBodies.Clear();
         Events.Add("meeting_started", "caller", caller, "body", body);
     }
@@ -506,8 +535,9 @@ public static class Game
     // ---------------- hooks called from Harmony postfixes ----------------
     public static void OnStartMeeting(PlayerControl caller, NetworkedPlayerInfo target)
     {
+        // The meeting UI appears a few seconds later; the event is sent when it does, so chat/vote work right after it.
         if (!_started || _inMeeting) return;
-        BeginMeeting(caller != null && caller.Data != null ? caller.Data.PlayerName : null, target != null ? target.PlayerName : null);
+        _pend = true; _pendCaller = caller != null && caller.Data != null ? caller.Data.PlayerName : null; _pendBody = target != null ? target.PlayerName : null;
     }
 
     public static void OnVotingComplete(IEnumerable<MeetingHud.VoterState> states, NetworkedPlayerInfo exiled, bool tie)
@@ -549,10 +579,19 @@ public static class Game
             Events.Add("you_died", "cause", "killed", "killer", seen ? killer.Data.PlayerName : null);
             return;
         }
-        if (killer.PlayerId == me.PlayerId) return;
+        if (killer.PlayerId == me.PlayerId)
+        {
+            Events.Add("kill_done", "victim", victim.Data.PlayerName, "room", RoomAt(vpos));
+            Body.OnKilled(victim);
+            return;
+        }
         var a = me.GetTruePosition(); float r = LightRadius(me);
         bool visible = me.Data.IsDead || Lit(a, r, vpos) || Lit(a, r, kpos);
-        if (visible) Events.Add("saw_kill", "killer", killer.Data.PlayerName, "victim", victim.Data.PlayerName, "room", RoomAt(vpos));
+        if (visible)
+        {
+            Events.Add("saw_kill", "killer", killer.Data.PlayerName, "victim", victim.Data.PlayerName, "room", RoomAt(vpos));
+            Body.OnSawKill(killer.Data.PlayerName, victim.Data.PlayerName);
+        }
     }
 
     public static void OnVent(PlayerControl pc, Vent vent, bool enter)
@@ -573,6 +612,7 @@ public static class Game
             case GameOverReason.ImpostorsByVote: case GameOverReason.ImpostorsByKill: case GameOverReason.ImpostorsBySabotage: case GameOverReason.ImpostorDisconnect: winner = "impostors"; break;
             default: winner = "unknown"; break;
         }
+        if (_started && _inMeeting) EmitMeetingEnded(); // the game can end right at the vote, before the meeting screen closes
         if (_started) Events.Add("game_ended", "winner", winner, "reason", reason.ToString());
         _ended = true; _inMeeting = false;
         _closeLogAt = Events.Now + 3f;

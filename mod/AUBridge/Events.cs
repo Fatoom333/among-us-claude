@@ -27,7 +27,13 @@ public static class Events
         {
             seq = ++_seq;
             e["seq"] = seq; e["t"] = T; e["type"] = type;
-            for (int i = 0; i + 1 < kv.Length; i += 2) e[(string)kv[i]] = kv[i + 1];
+            for (int i = 0; i + 1 < kv.Length; i += 2)
+            {
+                var k = (string)kv[i];
+                if (k == "type") k = "kind";            // the event's own type lives in "type"
+                else if (k == "seq" || k == "t") k = "_" + k;
+                e[k] = kv[i + 1];
+            }
             Buf.Add(e);
             if (Buf.Count > Cap) Buf.RemoveRange(0, Buf.Count - Cap);
             Monitor.PulseAll(L);
