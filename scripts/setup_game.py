@@ -48,14 +48,29 @@ while not a.after_start:
         out(False, "lobby", players=players, error="timeout waiting for lobby")
     time.sleep(3)
 
+# Russian names: launch-bridge starts copies with Latin names (Cyrillic breaks in .cmd), here we rename in the lobby.
+renamed = []
+if not a.after_start:
+    try:
+        with open(r"D:\AmongUs-tools\bridge\roster.json", encoding="utf-8-sig") as f:
+            roster = json.load(f)
+        for r in roster:
+            ru, seat = r.get("ru"), r.get("id")
+            if isinstance(ru, str) and ru and isinstance(seat, int) and 1 <= seat <= 10 and ru != r.get("name"):
+                if b.call(seat, "setname", name=ru[:10]).get("ok"):
+                    renamed.append(seat)
+        time.sleep(3)
+    except Exception:
+        pass  # names stay Latin; the game is still playable
+
 try:
     if not a.after_start:
-        r = b.call(1, "configure", impostors=a.impostors, killCooldown=25, discussion=30, voting=45,
+        r = b.call(1, "configure", impostors=a.impostors, killCooldown=25, discussion=60, voting=90,
                    commonTasks=1, shortTasks=3, longTasks=0)
         if not r.get("ok"):
             out(False, "configure", error=r.get("error"))
     if a.no_start:
-        out(True, "ready", players=players, impostors=a.impostors,
+        out(True, "ready", players=players, impostors=a.impostors, renamed=renamed,
             note="lobby full and configured; the human host changes settings and presses Start")
     if not a.after_start:
         r = b.call(1, "start")
