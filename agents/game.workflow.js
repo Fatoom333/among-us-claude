@@ -63,14 +63,30 @@ if (setup) {
   if (!s || !s.ok) return { aborted: true, setup: s }
 }
 
+// Human host (setup=false): the lobby was prepared beforehand with setup_game.py --no-start; the human changes
+// settings and presses Start. Autopilot seats can only be switched on after the ship exists, so a croupier waits
+// for the start in parallel with the players.
+function afterStart() {
+  const cmd = PY + ' D:/AmongUs-tools/setup_game.py --after-start --autopilot ' + AUTO.join(',') + ' --wait 1500'
+  return agent([
+    'Ты крупье партии Among Us (gameId ' + gameId + '). Выполни ОДНУ команду через инструмент PowerShell и верни результат.',
+    WHERE,
+    'Команда: ' + cmd,
+    'Скрипт ждёт до 25 минут, пока человек-хост нажмёт «Старт», потом включает автопилот на местах ' + AUTO.join(',') + '; в конце печатает одну строку JSON. Запусти его в фоне (run_in_background) и дождись завершения, не перезапуская.',
+    'При ok:false ничего не чини: верни ok:false, step и ошибку в detail. При ok:true верни step и строку JSON в detail. Ничего другого не делай, файлы не читай.',
+  ].join('\n'), { label: 'Крупье (автопилот)', phase: 'Play', model: 'sonnet', schema: SETUP })
+}
+
 function launch(p) {
   return [
     'Ты игрок Among Us: имя ' + p.name + ', место player=' + p.seat + ', ключ места key="' + p.key + '" (секрет: не пиши его в чат игры).',
-    'Первым делом вызови au_brief(player=' + p.seat + ', key=...) — там правила, твой характер и память — и дальше играй строго по нему. Игра уже идёт, разрешений не жди.',
+    'Первым делом вызови au_brief(player=' + p.seat + ', key=...) — там правила, твой характер и память — и дальше играй строго по нему. ' +
+      (setup ? 'Игра уже идёт, разрешений не жди.' : 'Вы в лобби: игра начнётся, когда хост нажмёт «Старт». До game_started просто жди через au_wait (timeout 55), ничего не делая и не комментируя.'),
   ].join('\n')
 }
 phase('Play')
-const results = (await parallel(players.map(p => () =>
+const croupier = !setup && AUTO.length ? [() => afterStart().then(s => { log('Автопилот: ' + JSON.stringify(s)); return null })] : []
+const results = (await parallel([...croupier, ...players.map(p => () =>
   agent(launch(p), {
     label: p.name + ' (место ' + p.seat + ')',
     phase: 'Play',
@@ -78,7 +94,7 @@ const results = (await parallel(players.map(p => () =>
     model: 'sonnet',
     schema: RESULT,
   }),
-))).filter(Boolean)
+)])).filter(Boolean)
 log('Игроков вернулось: ' + results.length + ' из ' + players.length)
 
 phase('Chronicle')
