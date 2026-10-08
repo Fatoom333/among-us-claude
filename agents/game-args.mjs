@@ -109,6 +109,17 @@ try {
   process.exit(1);
 }
 
+// Name the match on every seat: the mod writes its logs to D:/AmongUs-tools/games/<gameId>/, where the chronicler looks.
+// Not fatal: without a label the mod uses the start time (copies that are not up yet just miss it).
+try {
+  const py = [AU + '/mcp/.venv/Scripts/python.exe', AU + '/label-game.py', gameId];
+  const r = onPc ? execFileSync(py[0], py.slice(1), { encoding: 'utf8' }) : ssh(...py);
+  const j = JSON.parse(r.trim().split('\n').pop());
+  if (!j.ok) console.error(`имя партии получили не все места: ${JSON.stringify(j.failed)}`);
+} catch (e) {
+  console.error('не удалось сообщить имя партии моду: ' + String(e.message).split('\n')[0]);
+}
+
 const impostors = Number(opt('impostors') ?? 2);
 if (!Number.isInteger(impostors) || impostors < 1 || impostors > 3) { console.error('--impostors: 1..3'); process.exit(2); }
 const out = { gameId, players, setup: autopilot.includes(1) && !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
