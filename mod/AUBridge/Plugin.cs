@@ -16,6 +16,7 @@ public sealed class AubConfig
     public int Color = -1;
     public int Port;
     public string Token;
+    public bool Mute; // --aub-mute=1: no sound from this copy (bot windows; only the human's copy plays audio)
 
     public static AubConfig Parse(string[] args)
     {
@@ -35,6 +36,12 @@ public sealed class AubConfig
                 case "color": if (int.TryParse(v, out var col) && col >= 0 && col <= 17) c.Color = col; break;
                 case "port": if (int.TryParse(v, out var p) && p >= 1024 && p <= 65535) c.Port = p; break;
                 case "token": if (v.Length > 0) c.Token = v; break;
+                // UTF-8 name in base64: Cyrillic does not survive the .cmd command line, base64 does
+                case "nameb64":
+                    try { c.Name = Validate.Name(System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(v))) ?? c.Name; }
+                    catch (FormatException) { }
+                    break;
+                case "mute": c.Mute = v == "1" || v == "true"; break;
             }
         }
         if (!hasId) return null;

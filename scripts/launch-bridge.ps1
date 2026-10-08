@@ -33,11 +33,17 @@ foreach ($id in 1..$N) {
     if ($roster.ContainsKey($id)) { if ($roster[$id].name) { $name = [string]$roster[$id].name }; if ($null -ne $roster[$id].color) { $color = [int]$roster[$id].color } }
     # the name lands in a .cmd line: keep only what the mod accepts anyway (ASCII letters, digits, space _ . -; the .cmd is ASCII), no quotes/&/|/%/^
     $name = ($name -replace '[^A-Za-z0-9 _.-]', '').Trim(); if ($name.Length -gt 10) { $name = $name.Substring(0, 10).Trim() }; if (-not $name) { $name = "P$id" }
+    # Russian name (roster.json "ru") goes as base64 of UTF-8: only [A-Za-z0-9+/=] reaches the .cmd line; the mod decodes and validates it
+    $ru = if ($roster.ContainsKey($id) -and $roster[$id].ru) { ([string]$roster[$id].ru -replace '[^\p{L}\p{Nd} _.-]', '').Trim() } else { '' }
+    if ($ru.Length -gt 10) { $ru = $ru.Substring(0, 10).Trim() }
+    $ruArg = if ($ru) { ' --aub-nameb64=' + [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($ru)) } else { '' }
     if ($color -lt 0 -or $color -gt 17) { $color = ($id - 1) % 18 }
     $mode = if ($id -eq 1) { 'host' } else { 'join' }
+    # sound only from the human's copy; every bot copy is muted by the mod
+    $mute = if ($id -eq 1 -and $HumanSeat) { '' } else { ' --aub-mute=1' }
     $size = if ($id -eq 1 -and $HumanSeat) { '-popupwindow -screen-fullscreen 0 -screen-width 1920 -screen-height 1080' } elseif ($id -eq 1) { '-screen-width 960 -screen-height 540' } else { '-screen-width 640 -screen-height 400' }
     $cmd = "$runDir\run-au$id.cmd"
-    $line = "@`"$leg`" launch $game --skip-version-check --override-exe `"D:\AmongUs-mod\Among Us.exe`" -logFile `"$logDir\bridge$id.log`" -screen-fullscreen 0 $size --aub-id=$id --aub-mode=$mode `"--aub-name=$name`" --aub-color=$color --aub-token=$tok > `"$logDir\legendary-bridge$id.log`" 2>&1"
+    $line = "@`"$leg`" launch $game --skip-version-check --override-exe `"D:\AmongUs-mod\Among Us.exe`" -logFile `"$logDir\bridge$id.log`" -screen-fullscreen 0 $size --aub-id=$id --aub-mode=$mode `"--aub-name=$name`"$ruArg --aub-color=$color$mute --aub-token=$tok > `"$logDir\legendary-bridge$id.log`" 2>&1"
     Set-Content -Path $cmd -Value $line -Encoding ASCII
     if ($id -eq 1) { Start-Process -FilePath $cmd -WindowStyle Hidden }
     else { Start-Process -FilePath $sbx -ArgumentList "/box:AU$id", $cmd }
