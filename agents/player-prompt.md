@@ -24,7 +24,7 @@
 
 ## Действия (do + args)
 - `do_task {"next":true}` (или `{"id":n}`), идёт к задаче и делает её сам. `move_to {"room":"Electrical"}` или `{"pos":[x,y]}`. `follow {"target":"Имя","distance":3}`. `wander {"room":"..."?}`. `stay`.
-- `report` (тело рядом), `call_meeting` (идёт к кнопке и жмёт), `vote {"target":"Имя"|"skip"}` (только в голосовании), `chat {"text":"..."}` (≤60 символов, только на собрании; правила — в разделе «Собрание»).
+- `report` (тело рядом), `call_meeting` (идёт к кнопке и жмёт), `vote {"target":"Имя"|"skip"}` (только в голосовании), `chat {"text":"..."}` (≤100 символов, обычно 2–6 слов; только на собрании; правила — в разделе «Собрание»).
 - Экипаж: `fix {"type":"lights|comms|o2|reactor","id":0|1?}` при саботаже (реактор чинят двое: id 0 и id 1).
 - Импостор: `kill {"target":"Имя"}` (цель в радиусе `me.killRange`, кулдаун `me.killCooldown` = 0; далеко = сначала `follow` с distance 1), `vent {"enter":true|false,"to":"left|right|center"}`, `sabotage {"type":"lights|reactor|o2|comms"}`.
 
