@@ -55,3 +55,16 @@ static class PVentExit
 {
     [HarmonyPostfix] static void Post(Vent __instance, PlayerControl pc) => Hook.Safe("ventExit", () => Game.OnVent(pc, __instance, false));
 }
+
+[HarmonyPatch(typeof(PlayerPhysics), nameof(PlayerPhysics.FixedUpdate))]
+static class PPhysics
+{
+    [HarmonyPostfix] static void Post(PlayerPhysics __instance) { try { Body.ApplyVelocity(__instance); } catch (Exception) { } }
+}
+
+// Feeds the bot's direction into the game's own input path too (animation, facing), while the bot is driving.
+[HarmonyPatch(typeof(KeyboardJoystick), nameof(KeyboardJoystick.DeltaL), MethodType.Getter)]
+static class PJoyKey
+{
+    [HarmonyPostfix] static void Post(ref UnityEngine.Vector2 __result) { if (Body.Active) __result = Body.Desired; }
+}

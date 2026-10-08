@@ -60,7 +60,7 @@ public static class Validate
     }
 }
 
-[BepInPlugin(PluginId, "AUBridge", "0.2.0")]
+[BepInPlugin(PluginId, "AUBridge", "0.3.0")]
 [BepInProcess("Among Us.exe")]
 [BepInDependency(ReactorPlugin.Id)]
 public class Plugin : BasePlugin
@@ -78,7 +78,7 @@ public class Plugin : BasePlugin
 
         var harmony = new Harmony(PluginId);
         harmony.PatchAll(typeof(Patches));
-        foreach (var t in new[] { typeof(PMurder), typeof(PStartMeeting), typeof(PChat), typeof(PGameEnd), typeof(PVotingComplete), typeof(PVentEnter), typeof(PVentExit) })
+        foreach (var t in new[] { typeof(PMurder), typeof(PStartMeeting), typeof(PChat), typeof(PGameEnd), typeof(PVotingComplete), typeof(PVentEnter), typeof(PVentExit), typeof(PPhysics), typeof(PJoyKey) })
         {
             try { harmony.CreateClassProcessor(t).Patch(); Log.LogInfo("[AUB] hook ok: " + t.Name); }
             catch (Exception e) { Log.LogWarning($"[AUB] hook {t.Name} failed: {e.Message}"); }
