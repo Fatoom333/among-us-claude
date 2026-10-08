@@ -27,7 +27,9 @@ async def handle(req) -> dict:
         return await core.op_act(player, key, req.get("do"), req.get("args"))
     if op == "reflex":
         return await core.op_reflex(player, key, req.get("set"))
-    raise AuError("unknown op; allowed: state, wait, act, reflex")
+    if op == "brief":
+        return await core.op_brief(player, key)
+    raise AuError("unknown op; allowed: brief, state, wait, act, reflex")
 
 
 def main():

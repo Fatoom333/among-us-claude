@@ -15,6 +15,8 @@ ROOT = Path(os.environ.get("AU_ROOT", r"D:\AmongUs-tools"))
 SEATS_FILE = ROOT / "bridge" / "seats.json"
 TOKENS_DIR = ROOT / "bridge" / "tokens"
 LOG_DIR = ROOT / "mcp" / "logs"
+BRIEFS_DIR = ROOT / "briefs"
+MAX_BRIEF = 40 * 1024        # символов; должно влезать в MAX_OUT вместе с обёрткой
 HOST = "127.0.0.1"
 PORT_BASE = 47000
 
@@ -240,6 +242,18 @@ async def op_act(player, key, do, args=None) -> dict:
     args = check_act(do, args)
     log.info("p%s act %s %s", player, do, json.dumps(args, ensure_ascii=False)[:300])
     return await call_bridge(player, "cmd", {**args, "cmd": "act", "do": do})
+
+
+async def op_brief(player, key) -> dict:
+    """Бриф своего места: правила + характер + память. Его раскладывает agents/game-args.mjs перед партией."""
+    check_seat(player, key)
+    log.info("p%s brief", player)
+    text = _read_text(BRIEFS_DIR / f"p{player}.md")
+    if not text:
+        raise AuError("no brief for this seat; run agents/game-args.mjs before the game")
+    if len(text) > MAX_BRIEF:
+        raise AuError("brief too large")
+    return {"ok": True, "brief": text}
 
 
 async def op_reflex(player, key, rset) -> dict:
