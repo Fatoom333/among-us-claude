@@ -128,7 +128,7 @@ public static partial class Body
             case "wander": return "wandering";
             case "do_task": return _tPhase == 1 ? "task" : "moving_to_task";
             case "call_meeting": return "moving_to_button";
-            case "fix": return _fxPhase == 0 ? "moving_to_fix" : "fixing";
+            case "r_fix": case "fix": return _fxPhase == 0 ? "moving_to_fix" : "fixing";
             case "r_report": return "reporting";
             case "r_flee": return "fleeing";
             case "r_group": return "grouping";
@@ -391,7 +391,7 @@ public static partial class Body
             case "do_task": UpdateTask(me, pos, now); break;
             case "call_meeting": UpdateCallMeeting(me, pos, now); break;
             case "fix": UpdateFix(me, pos, now); break;
-            case "r_report": case "r_flee": case "r_group": case "r_avoid": OvrUpdate(me, pos, now); break;
+            case "r_report": case "r_flee": case "r_group": case "r_avoid": case "r_fix": OvrUpdate(me, pos, now); break;
         }
     }
 

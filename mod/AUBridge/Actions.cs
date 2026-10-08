@@ -398,6 +398,7 @@ public static partial class Body
     {
         Events.Add("fix_finished", "type", _fxType, "ok", ok);
         ReleaseFix();
+        if (_ovr == "r_fix") { _fxRetryAt = Events.Now + 3f; EndOverride(); return; } // reflex: hand the body back
         _kind = "stay"; Desired = Vector2.zero; _path = null; _hasGoal = false;
     }
 
@@ -408,7 +409,12 @@ public static partial class Body
         {
             int r = Drive(pos, now);
             if (r == 1) { _fxPhase = 1; _fxUntil = now + 2.0f + (float)Rnd.NextDouble(); _fxNextAt = 0; Desired = Vector2.zero; }
-            else if (r == 2) { ReleaseFix(); GiveUp(); }
+            else if (r == 2)
+            {
+                ReleaseFix();
+                if (_ovr == "r_fix") { _fxRetryAt = now + 3f; Events.Add("stuck", "room", Game.RoomAt(pos)); EndOverride(); }
+                else GiveUp();
+            }
             return;
         }
         Desired = Vector2.zero;

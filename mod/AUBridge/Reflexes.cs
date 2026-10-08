@@ -11,6 +11,7 @@ public sealed class ReflexDef
     public int MaxWitnesses;
     public float Distance = 4f;
     public int Min = 2;
+    public int MaxFixers = 2; // fix_sabotage: lights/comms crowd limit (0 = no limit)
 }
 
 // Reflexes: checked ~10 times per second inside the mod; the agent only switches them on.
@@ -18,12 +19,13 @@ public sealed class ReflexDef
 public static partial class Body
 {
     static List<ReflexDef> _reflexes = new();
-    static readonly string[] ReflexTypes = { "kill_if_alone", "report_on_body", "flee_on_kill_seen", "stick_to_group", "avoid", "self_report" };
+    static readonly string[] ReflexTypes = { "kill_if_alone", "report_on_body", "flee_on_kill_seen", "stick_to_group", "avoid", "self_report", "fix_sabotage" };
 
     // override (a reflex driving the body)
     static string _ovr; static int _ovrPri; static ActArgs _ovrSaved; static bool _ovrSavedAuto;
     static byte _ovrBodyId; static Vector2 _ovrPos; static float _ovrStart, _ovrRetarget, _ovrLastSeen; static string _ovrTarget;
     static float _rNext, _rKillAt, _belowSince;
+    static float _fxRetryAt, _fxSeenAt; static string _fxSeenType;
     static float _selfReportAt; static byte _selfReportVictim;
 
     // ---------------- parse / set ----------------
@@ -59,6 +61,11 @@ public static partial class Body
                 if (mn.ValueKind != JsonValueKind.Number || !mn.TryGetInt32(out var mnv) || mnv < 1 || mnv > 9) throw new BridgeError("bad min (1..9)");
                 d.Min = mnv;
             }
+            if (e.TryGetProperty("max", out var mx) && mx.ValueKind != JsonValueKind.Null)
+            {
+                if (mx.ValueKind != JsonValueKind.Number || !mx.TryGetInt32(out var mxv) || mxv < 0 || mxv > 9) throw new BridgeError("bad max (0..9)");
+                d.MaxFixers = mxv;
+            }
             if (d.Type == "avoid" && string.IsNullOrEmpty(d.Target)) throw new BridgeError("avoid needs target");
             foreach (var o in res) if (o.Type == d.Type && (d.Type != "avoid" || string.Equals(o.Target, d.Target, StringComparison.OrdinalIgnoreCase))) throw new BridgeError("duplicate reflex " + d.Type);
             res.Add(d);
@@ -83,6 +90,11 @@ public static partial class Body
             foreach (var d in defs)
             {
                 if ((d.Type == "kill_if_alone" || d.Type == "self_report") && !Game.AmImpostor(me)) throw new BridgeError(d.Type + " is only for impostors");
+                if (d.Type == "fix_sabotage")
+                {
+                    if (Game.AmImpostor(me)) throw new BridgeError("fix_sabotage is only for crew");
+                    if (me.Data == null || me.Data.IsDead) throw new BridgeError("fix_sabotage is only for living crew");
+                }
                 if (!string.IsNullOrEmpty(d.Target) && !string.Equals(d.Target, "any", StringComparison.OrdinalIgnoreCase) && !PlayerNameExists(d.Target)) throw new BridgeError("unknown player '" + d.Target + "'");
             }
         }
@@ -95,7 +107,7 @@ public static partial class Body
 
     static bool HasReflexFor(string ovr)
     {
-        string t = ovr == "r_report" ? "report_on_body" : ovr == "r_flee" ? "flee_on_kill_seen" : ovr == "r_group" ? "stick_to_group" : "avoid";
+        string t = ovr == "r_report" ? "report_on_body" : ovr == "r_flee" ? "flee_on_kill_seen" : ovr == "r_group" ? "stick_to_group" : ovr == "r_fix" ? "fix_sabotage" : "avoid";
         foreach (var d in _reflexes) if (d.Type == t) return true;
         return false;
     }
@@ -111,6 +123,7 @@ public static partial class Body
             if (d.Type == "kill_if_alone") { o["target"] = d.Target ?? "any"; o["maxWitnesses"] = d.MaxWitnesses; }
             if (d.Type == "avoid") { o["target"] = d.Target; o["distance"] = d.Distance; }
             if (d.Type == "stick_to_group") o["min"] = d.Min;
+            if (d.Type == "fix_sabotage") o["max"] = d.MaxFixers;
             res.Add(o);
         }
         return res;
@@ -263,6 +276,9 @@ public static partial class Body
             }
         }
 
+        // fix_sabotage
+        if (Find("fix_sabotage") != null && !imp) FixSabotageReflex(me, pos, now, vis);
+
         // avoid
         foreach (var d in _reflexes)
         {
@@ -328,6 +344,49 @@ public static partial class Body
         else if (_ovr == "r_group") EndOverride();
     }
 
+    // crew: go and repair an active sabotage on our own; lights/comms are not swarmed by the whole crowd
+    static void FixSabotageReflex(PlayerControl me, Vector2 pos, float now, List<Game.PInfo> vis)
+    {
+        var sab = Game.Sabotage().type;
+        if (sab != _fxSeenType) { _fxSeenType = sab; _fxSeenAt = now; }
+        if (sab == null || _ovr == "r_fix" || _kind == "fix" || me.inVent || now < _fxRetryAt) return;
+        if (_ovr != null && _ovrPri >= 2) return; // report/flee/avoid are driving
+        List<(Vector2 pos, int id)> cons;
+        try { cons = SabConsoles(me, sab); } catch (BridgeError) { return; } // repair task not delivered yet: try next tick
+        var d = Find("fix_sabotage");
+        string note;
+        if (sab == "reactor")
+        {
+            // the console (id 0/1) with fewer visible repairers, then the closer one
+            (Vector2 pos, int id) best = cons[0]; int bf = int.MaxValue; float bd = float.MaxValue;
+            foreach (var c in cons)
+            {
+                int f = 0; foreach (var v in vis) if (Vector2.Distance(v.Pos, c.pos) < 2.5f) f++;
+                float dist = Vector2.Distance(pos, c.pos);
+                if (f < bf || (f == bf && dist < bd)) { best = c; bf = f; bd = dist; }
+            }
+            cons = new List<(Vector2, int)> { best }; note = $"console {best.id}, {bf} already there";
+        }
+        else
+        {
+            cons.Sort((x, y) => Vector2.Distance(pos, x.pos).CompareTo(Vector2.Distance(pos, y.pos)));
+            if (sab == "o2") note = "both O2 panels";
+            else
+            {
+                var c0 = cons[0]; float mine = Vector2.Distance(pos, c0.pos); int ahead = 0;
+                // others at the panel or closer to it than we are (on their way there)
+                foreach (var v in vis) { float dv = Vector2.Distance(v.Pos, c0.pos); if (dv < mine && dv <= 9f) ahead++; }
+                if (d.MaxFixers > 0 && ahead >= d.MaxFixers && now - _fxSeenAt < 15f) return; // let them; go anyway after 15 s
+                cons = new List<(Vector2, int)> { c0 }; note = ahead >= d.MaxFixers && d.MaxFixers > 0 ? $"{ahead} others near but still active after 15 s" : $"{ahead} others near";
+            }
+        }
+        if (!BeginOverride("r_fix", 2)) return;
+        _fxType = sab; _fxActive = true; _fxHolding = false; _fxPhase = 0; _fxQueue = cons; _fxOps = 0; _fxEndAt = 0;
+        _fxCurId = cons[0].id;
+        if (!SetGoal(pos, cons[0].pos)) { _fxActive = false; _fxRetryAt = now + 3f; EndOverride(); return; }
+        Fire("fix_sabotage", $"{sab}: going to fix, {note}");
+    }
+
     // a point away from the threat that we can reach on foot
     static bool AvoidGoal(Vector2 pos, Vector2 threat)
     {
@@ -379,6 +438,7 @@ public static partial class Body
                     if (r != 0) EndOverride();
                     return;
                 }
+            case "r_fix": UpdateFix(me, pos, now); return;
             case "r_group":
             case "r_avoid":
                 {
