@@ -28,8 +28,8 @@ const SETUP = {
 }
 const CHRONICLE = {
   type: 'object',
-  properties: { summaryPath: { type: 'string' } },
-  required: ['summaryPath'],
+  properties: { summaryPath: { type: 'string' }, recap: { type: 'string' } },
+  required: ['summaryPath', 'recap'],
 }
 
 // args: {gameId, players:[{seat,name,key}], setup, impostors, autopilotSeats}; briefs (rules+personality+memory)
@@ -108,8 +108,8 @@ const prompt = [
   '1) Прочитай логи партии: папка D:/AmongUs-tools/games/' + gameId + '/ (p<id>.jsonl и god.jsonl с позициями — большой, читай выборочно). ' + WHERE + ' Пример: Get-Content D:/AmongUs-tools/games/' + gameId + '/p2.jsonl. Токены, ключи мест и seats.json не читай.',
   '2) Напиши games/' + gameId + '.md в корне проекта (рабочая папка): живая сводка для ролика — кто были импосторы, хронология убийств/собраний/голосов, ключевые моменты и повороты, лучшие реплики (дословно из чата), как проявлялись характеры. По-русски, с таймкодами. Не выдумывай того, чего нет в логах и итогах.',
   '3) Каждому игроку допиши agents/memory/<имя строчными>.md по формату agents/memory/README.md (создай, если нет): счётчик партий, впечатления о других, удачные/провальные ходы, язык жестов, счёты. Опирайся на поле memory из его итога и на логи.',
-  '4) Верни путь к сводке.',
+  '4) Верни путь к сводке и recap: пересказ партии для Тарти в чат, 8–15 строк по-русски простым языком — кто были предатели и как их (не) вычислили, кто кого убил, ключевые собрания и выбросы, 2–3 лучшие реплики дословно, чем запомнился каждый бот (по строчке на заметных). Без таблиц.',
 ].join('\n')
 
 const chron = await agent(prompt, { label: 'Летописец', phase: 'Chronicle', model: 'sonnet', schema: CHRONICLE })
-return { summaryPath: chron ? chron.summaryPath : null, results: results.map(r => ({ name: r.name, role: r.role, alive_at_end: r.alive_at_end, summary: r.summary })) }
+return { summaryPath: chron ? chron.summaryPath : null, recap: chron ? chron.recap : null, results: results.map(r => ({ name: r.name, role: r.role, alive_at_end: r.alive_at_end, summary: r.summary })) }
