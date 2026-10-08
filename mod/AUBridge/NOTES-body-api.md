@@ -91,3 +91,12 @@ foreach (var kv in ShipStatus.Instance.FastRooms) if (kv.Value.roomArea.OverlapP
 4. Починка реактора требует двух игроков одновременно; опкоды саботажей — читать из статиков.
 5. Минимум игроков для старта зависит от числа импостеров; в тестах `impostors=1`.
 6. Сетка проходимости нужна своя (PathfindingAPI не проверен на 17.4); свободный чат может быть запрещён настройкой аккаунта.
+
+## Шаг Core (v0.2.0) — что проверено вживую на 4 копиях
+- `configure` / `start` / `wait_event` / расширенный `state` / лог партии работают (`scripts/test_core.py`, клиент `scripts/bridgecli.py`).
+- `CalculateLightRadius` совпадает с `lightSource.ViewDistance` (экипаж 5, импостор 7.5 при ImpostorLightMod 1.5).
+- Фаза `intro` (до `game_started`): роль ещё не назначена, поэтому `state.game` отдаёт только `{phase:"intro"}`; потом `phase:"tasks"` + `intro:true`, пока идёт заставка.
+- `task.id` — индекс в списке задач игрока (0,1,…), не глобальный.
+- Файлы лога из песочницы пишутся прямо в `D:\AmongUs-tools\games\` (в `Sandboxie.ini` для AU2..AU10 добавлен `OpenFilePath`). Размер открытого файла в `dir` показывает 0 — это задержка NTFS, содержимое на месте.
+- `join` принимает только 127.0.0.1 и 10/8, 172.16/12, 192.168/16, loopback предпочитается; Tailscale 100.64/10, 198.18/15, Radmin 26/8, публичные пропускаются.
+- Не проверено вживую: meeting_*/vote_cast/chat/sabotage/saw_kill/you_died/saw_vent/game_ended, `lost_player` с гистерезисом, видимость за стеной (нужны движение и действия — шаги Move и дальше).

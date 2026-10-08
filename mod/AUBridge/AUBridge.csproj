@@ -23,6 +23,7 @@
     <Reference Include="Il2Cppmscorlib"><HintPath>$(RefDir)interop\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(RefDir)interop\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(RefDir)interop\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.Physics2DModule"><HintPath>$(RefDir)interop/UnityEngine.Physics2DModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.UI"><HintPath>$(RefDir)interop\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
 </Project>

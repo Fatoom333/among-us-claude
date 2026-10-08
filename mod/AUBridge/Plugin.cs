@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using BepInEx;
 using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
@@ -60,7 +60,7 @@ public static class Validate
     }
 }
 
-[BepInPlugin(PluginId, "AUBridge", "0.1.0")]
+[BepInPlugin(PluginId, "AUBridge", "0.2.0")]
 [BepInProcess("Among Us.exe")]
 [BepInDependency(ReactorPlugin.Id)]
 public class Plugin : BasePlugin
@@ -76,7 +76,13 @@ public class Plugin : BasePlugin
         if (Cfg == null) { Log.LogInfo("[AUB] no --aub-id, plugin inactive"); return; }
         Log.LogInfo($"[AUB] id={Cfg.Id} mode={Cfg.Mode} name={Cfg.Name} color={Cfg.Color} port={Cfg.Port} token={(Cfg.Token != null ? "set" : "none")}");
 
-        new Harmony(PluginId).PatchAll(typeof(Patches));
+        var harmony = new Harmony(PluginId);
+        harmony.PatchAll(typeof(Patches));
+        foreach (var t in new[] { typeof(PMurder), typeof(PStartMeeting), typeof(PChat), typeof(PGameEnd), typeof(PVotingComplete), typeof(PVentEnter), typeof(PVentExit) })
+        {
+            try { harmony.CreateClassProcessor(t).Patch(); Log.LogInfo("[AUB] hook ok: " + t.Name); }
+            catch (Exception e) { Log.LogWarning($"[AUB] hook {t.Name} failed: {e.Message}"); }
+        }
         IL2CPPChainloader.AddUnityComponent(typeof(Runner));
         Bridge.Start(Cfg.Port, Cfg.Token);
     }

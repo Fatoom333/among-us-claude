@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -51,6 +51,7 @@ public class Runner : MonoBehaviour
     {
         for (int i = 0; i < 32 && Queue.TryDequeue(out var a); i++) a();
         float now = Time.realtimeSinceStartup;
+        Game.Update(now);
         if (now < _nextTick) return;
         _nextTick = now + 0.5f;
         try { Tick(now); }
@@ -102,11 +103,13 @@ public class Runner : MonoBehaviour
     static void WarnOnce(string m) { if (_warned.Add(m)) Plugin.Logger.LogWarning(m); }
 
     // Never join anything outside the local network (official servers must stay untouched).
+    // Only loopback and RFC1918 ranges: not 100.64/10 (Tailscale), 198.18/15, 26/8 (Radmin), link-local or public.
     static bool IsLan(string a)
     {
         if (!System.Net.IPAddress.TryParse(a, out var ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return false;
         var b = ip.GetAddressBytes();
-        return b[0] == 10 || b[0] == 127 || b[0] == 26 || (b[0] == 192 && b[1] == 168) || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 169 && b[1] == 254);
+        return (b[0] == 127 && b[1] == 0 && b[2] == 0 && b[3] == 1)
+            || b[0] == 10 || (b[0] == 192 && b[1] == 168) || (b[0] == 172 && b[1] >= 16 && b[1] <= 31);
     }
 
     static int _popupStep;
@@ -174,13 +177,18 @@ public class Runner : MonoBehaviour
         }
         else
         {
+            JoinGameButton best = null;
             foreach (var jb in UnityEngine.Object.FindObjectsOfType<JoinGameButton>())
             {
                 if (!jb.isActiveAndEnabled || string.IsNullOrEmpty(jb.netAddress)) continue;
                 if (!IsLan(jb.netAddress)) { WarnOnce("[AUB] join: skipping non-LAN address " + jb.netAddress); continue; }
-                Plugin.Logger.LogInfo("[AUB] join: JoinGameButton.OnClick " + jb.netAddress);
+                if (best == null || (jb.netAddress == "127.0.0.1" && best.netAddress != "127.0.0.1")) best = jb; // prefer loopback
+            }
+            if (best != null)
+            {
+                Plugin.Logger.LogInfo("[AUB] join: JoinGameButton.OnClick " + best.netAddress);
                 _lastAct = now + 10f;
-                jb.OnClick();
+                best.OnClick();
                 return;
             }
             // Only one process per PC can listen for LAN broadcasts (UDP 47777), so most joiners never see the list.
@@ -259,10 +267,13 @@ public class Runner : MonoBehaviour
         else if (name != null)
             players.Add(new Dictionary<string, object> { ["name"] = name, ["color"] = color, ["isLocal"] = true });
 
+        object game = null;
+        try { game = Game.GameState(); } catch (Exception e) { Plugin.Logger.LogError("[AUB] game state: " + e); }
         return new Dictionary<string, object>
         {
             ["ok"] = true,
             ["id"] = Plugin.Cfg.Id,
+            ["game"] = game,
             ["scene"] = SceneManager.GetActiveScene().name,
             ["mode"] = _mode,
             ["stage"] = stage,
