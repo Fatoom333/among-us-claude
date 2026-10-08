@@ -344,9 +344,22 @@ public static partial class Body
         PlayerTask task = null;
         var tl = me.myTasks;
         for (int i = 0; tl != null && i < tl.Count; i++) if (tl[i] != null && tl[i].TaskType == SabTask(type)) { task = tl[i]; break; }
-        if (task == null) throw new BridgeError("you have no repair task for this sabotage yet");
         var res = new List<(Vector2, int)>();
         var cons = ShipStatus.Instance.AllConsoles;
+        if (task == null && Game.AmImpostor(me))
+        {
+            // impostors get no repair task: match consoles by the task type they serve (used for the fix_sabotage cover reflex)
+            for (int i = 0; cons != null && i < cons.Length; i++)
+            {
+                var c = cons[i]; if (c == null || c.TaskTypes == null) continue;
+                bool ok = false;
+                for (int k = 0; k < c.TaskTypes.Length; k++) if (c.TaskTypes[k] == SabTask(type)) ok = true;
+                if (ok) res.Add((c.transform.position, c.ConsoleId));
+            }
+            if (res.Count == 0) throw new BridgeError("no repair console found");
+            return res;
+        }
+        if (task == null) throw new BridgeError("you have no repair task for this sabotage yet");
         for (int i = 0; cons != null && i < cons.Length; i++)
         {
             var c = cons[i]; if (c == null) continue;

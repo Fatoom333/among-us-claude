@@ -198,10 +198,11 @@ def check_reflexes(rset) -> list:
         if not isinstance(t, str) or t not in REFLEXES:
             raise AuError("unknown reflex type; allowed: " + ", ".join(sorted(REFLEXES)))
         clean_args({k: v for k, v in r.items() if k != "type"})
-        if "max" in r:
-            m = r["max"]
-            if isinstance(m, bool) or not isinstance(m, int) or not 0 <= m <= 9:
-                raise AuError("max must be an integer 0..9")
+        if "eagerness" in r:
+            e = r["eagerness"]
+            if isinstance(e, bool) or not isinstance(e, (int, float)) or e != e or not 0 <= e <= 1:
+                raise AuError("eagerness must be a number 0..1")
+        # "max" (старый лимит чинящих) больше не используется: принимается и игнорируется
     return rset
 
 
