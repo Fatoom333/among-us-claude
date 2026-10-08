@@ -26,6 +26,7 @@ public static class Game
     internal static bool Started => _started && !_ended;
     internal static bool InMeetingOrExile => MeetingHud.Instance != null || ExileController.Instance != null;
     static int _round;
+    static string _label; // set by the orchestrator before the match, used once
     static float _shipSeenAt, _next, _nextTick1s, _closeLogAt;
     static string _gameId = "";
     static string _warnLast; static float _warnAt;
@@ -444,7 +445,10 @@ public static class Game
     {
         _started = true; _round++; Body.ResetVictims();
         Events.T0 = now;
-        _gameId = $"{DateTime.Now:yyyyMMdd}-{Client.GameId:x}-r{_round}";
+        // Name from the orchestrator (label cmd, e.g. 20261008-g7) so every seat writes into the folder the chronicler reads.
+        // Without a label: start time, so a restarted stand never overwrites an earlier match (r1 used to repeat).
+        _gameId = _label ?? $"{DateTime.Now:yyyyMMdd-HHmm}-r{_round}";
+        _label = null;
         GameLog.Open(_gameId);
         _wasDead = me.Data.IsDead; _deathSent = false; _exiledMe = false;
         var tasks = Tasks(me);
@@ -631,6 +635,16 @@ public static class Game
         if (_started) Events.Add("game_ended", "winner", winner, "reason", reason.ToString());
         _ended = true; _inMeeting = false;
         _closeLogAt = Events.Now + 3f;
+    }
+
+    // Orchestrator command: name of the next match (log folder). Only [A-Za-z0-9-], max 40.
+    public static object Label(string id)
+    {
+        if (string.IsNullOrEmpty(id) || id.Length > 40) throw new BridgeError("bad id");
+        foreach (var ch in id) if (!(ch == '-' || (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'))) throw new BridgeError("bad id");
+        _label = id;
+        Plugin.Logger.LogInfo("[AUB] next match label: " + id);
+        return id;
     }
 
     // Orchestrator command: finish the match early. Every copy emits game_ended(winner none, reason aborted) and goes to phase "ended";
