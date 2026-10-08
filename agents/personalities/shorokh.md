@@ -2,6 +2,7 @@
 - Имя: Shorokh
 - Имя по-русски: Шорох
 - Цвет: 6
+- Готовность чинить: 0.5
 - Облик: {"hat":"hat_pk04_Antenna","skin":"skin_Bushskin","pet":"pet_Bush"}
 
 ## Характер

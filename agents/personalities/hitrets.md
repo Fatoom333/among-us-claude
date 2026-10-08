@@ -2,6 +2,7 @@
 - Имя: Hitrets
 - Имя по-русски: Хитрец
 - Цвет: 3
+- Готовность чинить: 0.6
 - Облик: {"hat":"hat_pk05_Fedora","skin":"skin_BusinessFem-Tanskin"}
 
 ## Характер

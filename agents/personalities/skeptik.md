@@ -2,6 +2,7 @@
 - Имя: Skeptik
 - Имя по-русски: Скептик
 - Цвет: 16
+- Готовность чинить: 0.4
 - Облик: {"hat":"hat_pk06_Snowman","pet":"pet_Snow","nameplate":"nameplate_Polus_Snow"}
 
 ## Характер

@@ -2,6 +2,7 @@
 - Имя: Tishka
 - Имя по-русски: Тишка
 - Цвет: 15
+- Готовность чинить: 0.6
 - Облик: {"hat":"hat_pk04_Beanie","visor":"visor_pk01_PaperMaskVisor"}
 
 ## Характер

@@ -2,6 +2,7 @@
 - Имя: Haos
 - Имя по-русски: Хаос
 - Цвет: 0
+- Готовность чинить: 0.3
 - Облик: {"hat":"hat_pk04_CCC","skin":"skin_Mech","visor":"visor_pk01_AngeryVisor"}
 
 ## Характер

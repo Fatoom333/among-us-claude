@@ -2,6 +2,7 @@
 - Имя: Trusishka
 - Имя по-русски: Трусишка
 - Цвет: 14
+- Готовность чинить: 0.2
 - Облик: {"hat":"hat_pk04_BirdNest","visor":"visor_mira_mask_white"}
 
 ## Характер

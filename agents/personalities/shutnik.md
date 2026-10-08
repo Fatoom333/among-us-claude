@@ -2,6 +2,7 @@
 - Имя: Shutnik
 - Имя по-русски: Шутник
 - Цвет: 8
+- Готовность чинить: 0.5
 - Облик: {"hat":"hat_partyhat","nameplate":"nameplate_Lemon"}
 
 ## Характер
