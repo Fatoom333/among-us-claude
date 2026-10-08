@@ -35,8 +35,14 @@ const CHRONICLE = {
 
 // args: {gameId, players:[{seat,name,file,key}], setup, impostors, autopilotSeats}
 const { gameId, players, setup, impostors, autopilotSeats } = args
-const IMP = impostors || 2
-const AUTO = autopilotSeats || []
+// everything below is pasted into ssh command lines: accept only plain integers and a plain game id
+if (!/^[A-Za-z0-9-]{1,40}$/.test(String(gameId))) throw new Error('bad gameId')
+const IMP = Number.isInteger(impostors) && impostors >= 1 && impostors <= 3 ? impostors : 2
+const AUTO = (autopilotSeats || []).filter(x => Number.isInteger(x) && x >= 1 && x <= 10)
+for (const p of players) {
+  if (!Number.isInteger(p.seat) || p.seat < 1 || p.seat > 10 || !/^[A-Za-z0-9_-]{1,20}$/.test(String(p.name)) || !/^[0-9a-f]{16,128}$/.test(String(p.key)))
+    throw new Error('bad player entry for seat ' + p.seat)
+}
 
 if (setup) {
   phase('Setup')

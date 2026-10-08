@@ -5,6 +5,12 @@ $ErrorActionPreference = 'Stop'
 $tools = 'D:\AmongUs-tools'
 $tokDir = "$tools\bridge\tokens"; $runDir = "$tools\bridge\run"; $logDir = "$tools\logs"
 New-Item -ItemType Directory -Force $tokDir, $runDir, $logDir | Out-Null
+# tokens and run-au*.cmd (they carry --aub-token): current user, SYSTEM and Administrators only (not BUILTIN\Users)
+# (OI)(CI) only on the folder, files then inherit; /T with (OI)(CI) on files leaves them with an empty ACL. Checked: Sandboxie copies still read run-au*.cmd.
+foreach ($d in $tokDir, $runDir) {
+    icacls $d /inheritance:r /grant:r "$($env:USERNAME):(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' /Q | Out-Null
+    if (Get-ChildItem $d -File) { icacls "$d\*" /reset /Q | Out-Null }
+}
 
 & "$tools\stop-all.ps1"
 
@@ -24,7 +30,10 @@ foreach ($id in 1..$N) {
     if ($NewTokens -or -not (Test-Path $tf)) { [IO.File]::WriteAllText($tf, (New-Token)) }
     $tok = ([IO.File]::ReadAllText($tf)).Trim()
     $name = "P$id"; $color = ($id - 1) % 18
-    if ($roster.ContainsKey($id)) { if ($roster[$id].name) { $name = $roster[$id].name }; if ($null -ne $roster[$id].color) { $color = [int]$roster[$id].color } }
+    if ($roster.ContainsKey($id)) { if ($roster[$id].name) { $name = [string]$roster[$id].name }; if ($null -ne $roster[$id].color) { $color = [int]$roster[$id].color } }
+    # the name lands in a .cmd line: keep only what the mod accepts anyway (ASCII letters, digits, space _ . -; the .cmd is ASCII), no quotes/&/|/%/^
+    $name = ($name -replace '[^A-Za-z0-9 _.-]', '').Trim(); if ($name.Length -gt 10) { $name = $name.Substring(0, 10).Trim() }; if (-not $name) { $name = "P$id" }
+    if ($color -lt 0 -or $color -gt 17) { $color = ($id - 1) % 18 }
     $mode = if ($id -eq 1) { 'host' } else { 'join' }
     $size = if ($id -eq 1 -and $HumanSeat) { '-popupwindow -screen-fullscreen 0 -screen-width 1920 -screen-height 1080' } elseif ($id -eq 1) { '-screen-width 960 -screen-height 540' } else { '-screen-width 640 -screen-height 400' }
     $cmd = "$runDir\run-au$id.cmd"
