@@ -22,7 +22,7 @@ async def handle(req) -> dict:
     if op == "state":
         return await core.op_state(player, key)
     if op == "wait":
-        return await core.op_wait(player, key, req.get("timeout", 30), req.get("since", 0))
+        return await core.op_wait(player, key, req.get("timeout", 30), req.get("since", 0), req.get("quiet", False) is True)
     if op == "act":
         return await core.op_act(player, key, req.get("do"), req.get("args"))
     if op == "reflex":

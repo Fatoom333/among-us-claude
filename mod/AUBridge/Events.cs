@@ -43,7 +43,9 @@ public static class Events
     }
 
     // Returns events with seq > since; blocks up to timeoutSec while there are none.
-    public static (long seq, List<Dictionary<string, object>> events) Wait(long since, double timeoutSec)
+    // quiet=true: background sightings do not wake the poll (they ride along, last 6 only) -- saves the agent useless turns.
+    static readonly HashSet<string> Noise = new() { "saw_player", "lost_player", "room_changed", "lost_sight", "vote_cast" };
+    public static (long seq, List<Dictionary<string, object>> events) Wait(long since, double timeoutSec, bool quiet = false)
     {
         var end = DateTime.UtcNow.AddSeconds(timeoutSec);
         lock (L)
@@ -52,8 +54,17 @@ public static class Events
             {
                 var res = new List<Dictionary<string, object>>();
                 foreach (var e in Buf) if ((long)e["seq"] > since) res.Add(e);
-                if (res.Count > 0) return (_seq, res);
+                bool wake = res.Count > 0;
+                if (wake && quiet) { wake = false; foreach (var e in res) if (!Noise.Contains((string)e["type"])) { wake = true; break; } }
                 var left = end - DateTime.UtcNow;
+                if (wake || (left <= TimeSpan.Zero && res.Count > 0))
+                {
+                    if (quiet)
+                    {
+                        int noisy = 0; for (int i = res.Count - 1; i >= 0; i--) if (Noise.Contains((string)res[i]["type"]) && ++noisy > 6) res.RemoveAt(i);
+                    }
+                    return (_seq, res);
+                }
                 if (left <= TimeSpan.Zero) return (_seq, res);
                 Monitor.Wait(L, left);
             }

@@ -5,11 +5,11 @@
 
 ## Как вызывать (одно действие = один вызов инструмента PowerShell)
 ```
-& "C:\Users\<user>\Claude work\Among Us\scripts\au.ps1" '{"op":"wait","player":N,"key":"KEY","timeout":50,"since":0}'
+& "C:\Users\<user>\Claude work\Among Us\scripts\au.ps1" '{"op":"wait","player":N,"key":"KEY","timeout":55,"quiet":true,"since":0}'
 ```
 Именно через `&` и одинарные кавычки (не `powershell -File`, не Bash). Ответ: одна строка JSON, `{"ok":false,"error":...}` при ошибке. Один вызов за шаг, не склеивай несколько. Если в сессии есть инструменты `au_state/au_wait/au_act/au_reflex`, можно ими (те же поля). Операции:
-- `{"op":"wait","timeout":50,"since":SEQ}`: ждёт события, ответ `{seq,events[]}`. `since` = `seq` прошлого ответа (сначала 0). Пустой список = ничего нового, жди снова.
-- `{"op":"state"}`: что видит персонаж (`game.phase`, `game.me`, `tasks`, `visible`, `bodies`, `busy`, `meeting`, `reflexes`). Вызывай редко: после собрания и при неясности.
+- `{"op":"wait","timeout":55,"quiet":true,"since":SEQ}`: ждёт события, ответ `{seq,events[]}`. `since` = `seq` прошлого ответа (сначала 0). Всегда с `quiet:true`: тогда `saw_player/lost_player/room_changed` не будят тебя, а лишь прилагаются к важному событию (последние 6). Пустой список = ничего нового, жди снова без комментариев.
+- `{"op":"state"}`: что видит персонаж (`game.phase`, `game.me`, `tasks`, `visible`, `bodies`, `busy`, `meeting`, `reflexes`). Вызывай редко: один раз после собрания (когда пришёл `meeting_ended`, не раньше) и при неясности.
 - `{"op":"act","do":"...","args":{...}}`: действие. Заменяет текущее занятие тела.
 - `{"op":"reflex","set":[{"type":"..."}]}`: полный список рефлексов (заменяет прежний, `[]` снимает).
 К каждому запросу добавляй `"player":N,"key":"KEY"`.
@@ -22,25 +22,25 @@
 `ok:true` значит «команда принята», результат смотри по событиям.
 
 ## Рефлексы (тело делает само, пока ты ждёшь)
-`report_on_body`; `flee_on_kill_seen`; `stick_to_group {"min":2}`; `avoid {"target":"Имя","distance":4}`; импостору ещё `kill_if_alone {"target":"Имя"|"any","maxWitnesses":0}` и `self_report`. Ставь сразу после старта, а после каждого собрания ставь заново.
+`report_on_body`; `flee_on_kill_seen`; `stick_to_group {"min":2}`; `avoid {"target":"Имя","distance":4}`; импостору ещё `kill_if_alone {"target":"Имя"|"any","maxWitnesses":0}` и `self_report`. Ставь один раз после `game_started`: рефлексы живут до конца партии и собрание их не сбрасывает, перечитывать/ставить заново не надо. Рефлекс `stick_to_group` не прерывает задачу у консоли. Экипажу обычно: `report_on_body`, `flee_on_kill_seen`. Импостору: `report_on_body` не ставь (репорт чужого тела выдаёт интерес, свои жертвы он не трогает); `self_report` и `kill_if_alone` ставь по ситуации (когда решил убивать).
 
 ## События (`events[]`, у каждого `type`, `t`, `seq`)
 `game_started {role, partner, tasks}` (партнёр только у импостора), `task_done`, `task_faked`, `tasks_all_done`, `arrived {room}`, `stuck`, `lost_sight {name}`, `room_changed`, `saw_player {name,room}`, `lost_player`, `saw_body {name,room}`, `saw_kill {killer,victim,room}`, `saw_vent {name,action}`, `kill_done {victim}`, `you_died {cause,killer?}`, `sabotage {kind}`, `sabotage_fixed {kind}`, `fix_finished {kind,ok}`, `button_pressed`, `reflex_fired {reflex}`, `meeting_started {caller,body}`, `chat {from,text}`, `voting_started`, `meeting_ended {ejected,tie,wasImpostor?}`, `game_ended {winner:crew|impostors,reason}`.
 Пока идёт заставка, `state.game.phase` = `intro`: просто жди `game_started`.
 
 ## Главный цикл
-1. После `game_started`: поставь рефлексы и дай первое занятие (`do_task next` для экипажа; импостор: фальшивые задачи или `wander`, высматривай одиночек).
-2. `wait(50)` → пара предложений мысли → `act`/`reflex` при необходимости → снова `wait`. Нет нужды в решении: просто жди. Когда `do_task` закончился (`task_done`), давай следующую; `tasks_all_done` у экипажа: броди (`wander`) рядом с людьми или стой в людном месте.
-3. Думай кратко, особенно вне собраний. Экономь токены.
+1. После `game_started` (роль уже в событии, `state` не нужен): поставь рефлексы и дай первое занятие. Экипаж: `do_task next`. Импостор: рефлексы под роль (без `report_on_body`), фальшивые задачи или `wander`, высматривай одиночек.
+2. `wait` → мысль одной строкой, и только если есть решение → `act` → снова `wait`. Нет решения: сразу `wait` без текста. На `task_done` давай следующую задачу; на `tasks_all_done` у экипажа один раз `wander` в людном месте и дальше только `wait`.
+3. Думай кратко, вне собраний ≤1 предложения. Не вызывай `state` ради проверки: все важное приходит событиями.
 
 ## Роли
 Экипаж: задачи, наблюдение (кто где был, кто рядом с телом), репорт тела, `fix` саботажей. Импостор: убивай без свидетелей, лги в стиле характера, не палься рядом с напарником. Тайного канала нет, только движения (твой язык жестов из характера и памяти). Мёртвый играет дальше: экипаж-призрак делает задачи, призрак-импостор саботирует; призрак видит только свой экран и в чат собрания не пишет.
 
 ## Собрание
-- На `meeting_started` СНАЧАЛА запиши сводку в `agents/memory/<Имя>-current.md` (Write, целиком): кого и где видел (с комнатами), подозрения и почему, что делаю после собрания (куда иду, какие рефлексы). Это наш compact.
+- На `meeting_started` СНАЧАЛА запиши сводку в `agents/memory/<Имя>-current.md` (Write, целиком, ≤10 строк): кого и где видел (с комнатами), подозрения и почему, что делаю после собрания. Это наш compact. Дальше жди `wait`, пока не придёт `meeting_ended`: после `voting_started` не опрашивай `state`.
 - Затем 1-3 сообщения в чат в своей манере (`chat`, по-русски, ≤100 символов, без эмодзи, не повторяйся), читая `chat`-события.
 - На `voting_started`: `vote` на подозреваемого по увиденному или `skip`. Импостор голосует так, чтобы не палиться.
-- После `meeting_ended` перечитай свой `-current.md`, один раз `state`, поставь рефлексы заново и вернись к делу.
+- После `meeting_ended` перечитай свой `-current.md`, один раз `state`, дай занятие (`do_task next`: собрание отменило прежнее; рефлексы остались) и вернись к делу.
 
 ## Конец
 `game_ended`: допиши в `agents/memory/<Имя>-current.md` итог (кто победил, твоя роль, что удалось, кого как запомнил) и верни итог в запрошенной схеме (name, role, alive_at_end, summary, notable). Если `wait` долго отвечает ошибкой `bridge offline`, игра закончена или мост упал: завершай так же.

@@ -442,7 +442,7 @@ public static class Game
 
     static void StartMatch(PlayerControl me, float now)
     {
-        _started = true; _round++;
+        _started = true; _round++; Body.ResetVictims();
         Events.T0 = now;
         _gameId = $"{DateTime.Now:yyyyMMdd}-{Client.GameId:x}-r{_round}";
         GameLog.Open(_gameId);
