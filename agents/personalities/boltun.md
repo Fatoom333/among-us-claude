@@ -2,6 +2,7 @@
 - Имя: Boltun
 - Имя по-русски: Болтун
 - Цвет: 4
+- Готовность чинить: 0.5
 - Облик: {"hat":"hat_mira_headset_yellow","visor":"visor_lollipopLime"}
 
 ## Характер

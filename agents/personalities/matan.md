@@ -2,6 +2,7 @@
 - Имя: Matan
 - Имя по-русски: Матан
 - Цвет: 10
+- Готовность чинить: 0.7
 - Облик: {"hat":"hat_pk03_Goggles","skin":"skin_Science","visor":"visor_mira_glasses"}
 
 ## Характер

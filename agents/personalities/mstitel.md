@@ -2,6 +2,7 @@
 - Имя: Mstitel
 - Имя по-русски: Мститель
 - Цвет: 17
+- Готовность чинить: 0.5
 - Облик: {"hat":"hat_pkHW01_Machete","visor":"visor_Stickynote_Purple"}
 
 ## Характер

@@ -2,6 +2,7 @@
 - Имя: Filosof
 - Имя по-русски: Философ
 - Цвет: 8
+- Готовность чинить: 0.3
 - Облик: {"hat":"hat_mira_cloud","nameplate":"nameplate_Polus_Planet"}
 
 ## Характер

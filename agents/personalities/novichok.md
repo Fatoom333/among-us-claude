@@ -2,6 +2,7 @@
 - Имя: Novichok
 - Имя по-русски: Новичок
 - Цвет: 11
+- Готовность чинить: 0.8
 - Облик: {"hat":"hat_pk01_BaseballCap","visor":"visor_pk01_DumStickerVisor"}
 
 ## Характер

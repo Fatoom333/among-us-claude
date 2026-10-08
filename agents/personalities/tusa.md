@@ -2,6 +2,7 @@
 - Имя: Tusa
 - Имя по-русски: Туса
 - Цвет: 3
+- Готовность чинить: 0.7
 - Облик: {"hat":"hat_pk05_Flamingo","skin":"skin_ApronGreen","nameplate":"nameplate_Mira_Cafeteria"}
 
 ## Характер

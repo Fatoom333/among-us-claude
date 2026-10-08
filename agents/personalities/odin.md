@@ -2,6 +2,7 @@
 - Имя: Odin
 - Имя по-русски: Один
 - Цвет: 7
+- Готовность чинить: 0.3
 - Облик: {"hat":"hat_pk04_Vagabond","skin":"skin_JacketPurpleskin"}
 
 ## Характер

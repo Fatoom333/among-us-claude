@@ -2,6 +2,7 @@
 - Имя: Azart
 - Имя по-русски: Азарт
 - Цвет: 4
+- Готовность чинить: 0.7
 - Облик: {"hat":"hat_pk02_TenGallonHat","nameplate":"nameplate_Orange"}
 
 ## Характер

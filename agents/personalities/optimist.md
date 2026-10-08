@@ -2,6 +2,7 @@
 - Имя: Optimist
 - Имя по-русски: Оптимист
 - Цвет: 5
+- Готовность чинить: 0.9
 - Облик: {"hat":"hat_mira_flower","skin":"skin_SweaterYellowskin"}
 
 ## Характер
