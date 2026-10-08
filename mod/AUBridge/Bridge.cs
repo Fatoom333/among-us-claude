@@ -146,6 +146,7 @@ public static class Bridge
                         return snap;
                     }
                 case "start": Plugin.Logger.LogInfo("[AUB] cmd start"); Runner.Invoke(Game.Start); break;
+                case "abort": Plugin.Logger.LogInfo("[AUB] cmd abort"); Runner.Invoke(Game.Abort); break;
                 case "wait_event": return WaitEvent(root);
                 case "act": { var a = ActArgs.Parse(root); return Runner.Invoke(() => Body.Act(a)); }
                 case "autopilot": { var a = new ActArgs { Do = "autopilot" }; if (root.TryGetProperty("on", out var ov)) { if (ov.ValueKind != JsonValueKind.True && ov.ValueKind != JsonValueKind.False) return Err("bad on (bool)"); a.On = ov.GetBoolean(); } return Runner.Invoke(() => Body.Autopilot(a)); }
