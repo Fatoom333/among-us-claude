@@ -85,7 +85,24 @@ public class Runner : MonoBehaviour
         ApplyIdentity(now);
         CloseAnnouncements(now);
         HandleMergePopup(now);
+        PlayAgain(now);
         if (!InGame) DriveMenu(now);
+    }
+
+    // Bot copies (muted = not the human's window) leave the end screen by themselves: "Play again" -> back to the lobby.
+    // The human's copy stays on the results screen until the human clicks.
+    static float _endSceneSince = -1f, _lastPlayAgain;
+    static int _playAgainTries;
+    static void PlayAgain(float now)
+    {
+        if (SceneManager.GetActiveScene().name != "EndGame") { _endSceneSince = -1f; _playAgainTries = 0; return; }
+        if (_endSceneSince < 0) _endSceneSince = now;
+        if (!Plugin.Cfg.Mute || now - _endSceneSince < 4f || now - _lastPlayAgain < 10f || _playAgainTries >= 3) return;
+        var nav = UnityEngine.Object.FindObjectOfType<EndGameNavigation>();
+        if (nav == null) return;
+        _lastPlayAgain = now; _playAgainTries++;
+        Plugin.Logger.LogInfo("[AUB] end screen: EndGameNavigation.NextGame (try " + _playAgainTries + ")");
+        nav.NextGame();
     }
 
     static void ApplyIdentity(float now)
@@ -301,7 +318,9 @@ public class Runner : MonoBehaviour
     public static object Snapshot()
     {
         string stage = "menu";
-        if (Client != null && Client.GameState == InnerNetClient.GameStates.Started) stage = "ingame";
+        // On the results screen the client still counts as "joined", so check the scene first (it used to report "lobby")
+        if (SceneManager.GetActiveScene().name == "EndGame") stage = "ended";
+        else if (Client != null && Client.GameState == InnerNetClient.GameStates.Started) stage = "ingame";
         else if (InGame) stage = "lobby";
         else if (_mode == "join") stage = "searching";
 
