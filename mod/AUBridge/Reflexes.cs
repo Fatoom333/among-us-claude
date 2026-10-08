@@ -295,7 +295,7 @@ public static partial class Body
                 if (_belowSince == 0) _belowSince = now;
                 if (now - _belowSince >= 1.0f)
                 {
-                    bool atTask = _kind == "do_task" && _tPhase == 1; // never interrupt a task being performed
+                    bool atTask = !(_kind == null || _kind == "stay" || _kind == "wander" || _kind == "r_group"); // only idle/wander may be pulled to a group: never walking to a task console, doing one, moving to a goal or fixing
                     if (!atTask && (_ovr == null || _ovr == "r_group" || _ovrPri < 1))
                     {
                         bool fresh = _ovr != "r_group";

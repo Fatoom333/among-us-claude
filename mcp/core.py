@@ -71,7 +71,7 @@ class Conn:
             CONNECT_TIMEOUT)
 
     async def request(self, payload: dict, timeout: float) -> dict:
-        data = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
+        data = (json.dumps(payload, ensure_ascii=True) + "\n").encode("ascii")
         async with self.lock:
             # давно простаивавшее соединение закрываем заранее
             if self.writer is not None and time.monotonic() - self.last_used > IDLE_CLOSE:
