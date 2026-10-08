@@ -164,8 +164,11 @@ public static partial class Body
     }
 
     // ---------------- hooks from Game ----------------
+    static readonly HashSet<byte> _myVictims = new();
+    public static void ResetVictims() { _myVictims.Clear(); }
     public static void OnKilled(PlayerControl victim)
     {
+        _myVictims.Add(victim.PlayerId);
         if (Find("self_report") != null) { _selfReportAt = Events.Now + 0.3f; _selfReportVictim = victim.PlayerId; }
     }
 
@@ -205,6 +208,8 @@ public static partial class Body
         var vis = new List<Game.PInfo>();
         foreach (var v in Game.Visible(me, pos, rad)) if (v.Alive) vis.Add(v);
         var bodies = Game.Bodies(me, pos, rad);
+        var reportable = new List<Game.BInfo>();
+        foreach (var b in bodies) if (!_myVictims.Contains(b.Id)) reportable.Add(b); // report_on_body never fires on our own kills (that is self_report)
 
         // self_report: our own victim, right after the kill
         if (_selfReportAt > 0 && now >= _selfReportAt)
@@ -241,10 +246,10 @@ public static partial class Body
         }
 
         // report_on_body
-        if (Find("report_on_body") != null && !me.inVent && bodies.Count > 0)
+        if (Find("report_on_body") != null && !me.inVent && reportable.Count > 0)
         {
             Game.BInfo nb = null;
-            foreach (var b in bodies) if (nb == null || b.Dist < nb.Dist) nb = b;
+            foreach (var b in reportable) if (nb == null || b.Dist < nb.Dist) nb = b;
             if (nb.Dist <= me.MaxReportDistance * 0.9f)
             {
                 try { ReportBody(me, nb); Fire("report_on_body", "reported " + nb.Name); } catch (BridgeError e) { Plugin.Logger.LogWarning("[AUB] report_on_body: " + e.Message); }
@@ -290,7 +295,8 @@ public static partial class Body
                 if (_belowSince == 0) _belowSince = now;
                 if (now - _belowSince >= 1.0f)
                 {
-                    if (_ovr == null || _ovr == "r_group" || _ovrPri < 1)
+                    bool atTask = _kind == "do_task" && _tPhase == 1; // never interrupt a task being performed
+                    if (!atTask && (_ovr == null || _ovr == "r_group" || _ovrPri < 1))
                     {
                         bool fresh = _ovr != "r_group";
                         if (fresh || now >= _ovrRetarget)

@@ -36,9 +36,10 @@ async def au_state(player: Player, key: Key) -> dict:
 @mcp.tool()
 async def au_wait(player: Player, key: Key,
                   timeout: Annotated[int, Field(ge=0, le=55)] = 30,
-                  since: Annotated[int, Field(ge=0, le=2**53)] = 0) -> dict:
+                  since: Annotated[int, Field(ge=0, le=2**53)] = 0,
+                  quiet: bool = False) -> dict:
     """Долгий опрос событий: вернуть {seq, events[]} после seq=since; ждёт до timeout секунд (макс. 55)."""
-    return await _run(core.op_wait(player, key, timeout, since))
+    return await _run(core.op_wait(player, key, timeout, since, quiet))
 
 
 @mcp.tool()

@@ -1,4 +1,4 @@
-"""Step 'Actions' live tests on N copies (run on the PC). Phases reuse a running game:
+﻿"""Step 'Actions' live tests on N copies (run on the PC). Phases reuse a running game:
   setup N   lobby -> configure(impostors=1, short cooldowns) -> start
   bad N     wrong arguments / wrong role / wrong phase must all give ok:false
   vent N    impostor walks to a vent room, enters, moves on, exits
@@ -478,4 +478,30 @@ def sab2():
     ev.stop = True
 
 
-{"setup": setup, "bad": bad, "vent": vent, "sab": sab, "react": react, "kill": kill, "meet2": meet2, "round2": round2, "sab2": sab2}[PH]()
+def ownbody():
+    """impostor with report_on_body + kill_if_alone must NOT report his own victim (needs 5 seats, run after setup)."""
+    ev = Ev(); time.sleep(1)
+    imp, crew, nm = roles_map(); I = imp[0]
+    V, A, B2, C2 = crew[:4]
+    p("impostor", nm[I], "victim", nm[V])
+    for i in crew: act(i, do="stay")
+    walk(A, ev, room="Reactor"); walk(B2, ev, room="Storage"); walk(C2, ev, room="MedBay")
+    walk(V, ev, room="Cafeteria"); act(V, do="stay")
+    walk(I, ev, room="Cafeteria")
+    for _ in range(60):
+        if game(I)["me"]["killCooldown"] <= 0.05: break
+        time.sleep(0.5)
+    r = b.call(I, "reflex", set=[{"type": "report_on_body"}, {"type": "kill_if_alone", "target": "any", "maxWitnesses": 0}])
+    ok("reflexes accepted", r.get("ok"), r.get("error"))
+    t0 = time.time()
+    act(I, do="follow", target=nm[V], distance=1.0)
+    e = ev.wait(I, "kill_done", 40, after=t0 - 0.01)
+    ok("kill happened via kill_if_alone", e is not None, e)
+    t1 = time.time()
+    time.sleep(12)
+    ok("no meeting after own kill", ev.find(I, "meeting_started", t1 - 5) is None, ev.find(I, "meeting_started", t1 - 5))
+    ok("no report_on_body fired", ev.find(I, "reflex_fired", t1 - 5, reflex="report_on_body") is None, ev.find(I, "reflex_fired", t1 - 5, reflex="report_on_body"))
+    ev.stop = True
+
+
+{"setup": setup, "ownbody": ownbody, "bad": bad, "vent": vent, "sab": sab, "react": react, "kill": kill, "meet2": meet2, "round2": round2, "sab2": sab2}[PH]()

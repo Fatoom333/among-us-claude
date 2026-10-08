@@ -162,7 +162,8 @@ public static class Bridge
         }
         long since = 0;
         if (root.TryGetProperty("since", out var sv) && (sv.ValueKind != JsonValueKind.Number || !sv.TryGetInt64(out since))) return Err("bad since");
-        var (seq, events) = Events.Wait(since, timeout);
+        bool quiet = root.TryGetProperty("quiet", out var qv) && qv.ValueKind == JsonValueKind.True;
+        var (seq, events) = Events.Wait(since, timeout, quiet);
         return new Dictionary<string, object> { ["ok"] = true, ["seq"] = seq, ["events"] = events };
     }
 

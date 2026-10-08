@@ -227,11 +227,11 @@ async def op_state(player, key) -> dict:
     return await call_bridge(player, "cmd", {"cmd": "state"})
 
 
-async def op_wait(player, key, timeout=30, since=0) -> dict:
+async def op_wait(player, key, timeout=30, since=0, quiet=False) -> dict:
     check_seat(player, key)
     timeout, since = check_wait(timeout, since)
     log.info("p%s wait t=%s since=%s", player, timeout, since)
-    return await call_bridge(player, "wait", {"cmd": "wait_event", "timeout": timeout, "since": since},
+    return await call_bridge(player, "wait", {"cmd": "wait_event", "timeout": timeout, "since": since, "quiet": bool(quiet)},
                              timeout + 10.0)
 
 
