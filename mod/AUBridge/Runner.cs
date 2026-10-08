@@ -27,7 +27,7 @@ public class Runner : MonoBehaviour
     public static T Invoke<T>(Func<T> f)
     {
         T result = default; Exception err = null;
-        using var done = new ManualResetEventSlim(false);
+        var done = new ManualResetEventSlim(false); // not disposed: after a timeout the queued action still runs and sets it
         Queue.Enqueue(() => { try { result = f(); } catch (Exception e) { err = e; } finally { done.Set(); } });
         if (!done.Wait(5000)) throw new TimeoutException();
         if (err != null) throw err;
@@ -49,7 +49,10 @@ public class Runner : MonoBehaviour
 
     void Update()
     {
-        for (int i = 0; i < 32 && Queue.TryDequeue(out var a); i++) a();
+        for (int i = 0; i < 32 && Queue.TryDequeue(out var a); i++)
+        {
+            try { a(); } catch (Exception e) { Plugin.Logger.LogError("[AUB] queued: " + e.Message); }
+        }
         float now = Time.realtimeSinceStartup;
         Game.Update(now);
         try { Body.Update(now); } catch (Exception e) { Plugin.Logger.LogError("[AUB] body: " + e.Message); }

@@ -247,7 +247,10 @@ public static partial class Body
     {
         if (r.TryGetProperty("mask", out var m) && m.ValueKind == JsonValueKind.String)
         {
-            var s = m.GetString(); if (s != "ship" && s != "shipobj" && s != "shipall" && s != "phys" && !s.StartsWith("nt") && s != "shadow" && !(s.StartsWith("bits") && int.TryParse(s.Substring(4), out _))) throw new BridgeError("mask: ship|shipobj|shipall|shadow|bits<N>");
+            // strict: the mask name ends up in a cache file name (no path characters may get through)
+            var s = m.GetString();
+            bool num(string p) => s.Length > p.Length && s.Length <= p.Length + 10 && s.StartsWith(p, StringComparison.Ordinal) && int.TryParse(s.Substring(p.Length), System.Globalization.NumberStyles.None, null, out _);
+            if (s != "ship" && s != "shipobj" && s != "shipall" && s != "phys" && s != "shadow" && !num("nt") && !num("bits")) throw new BridgeError("mask: ship|shipobj|shipall|shadow|phys|nt<N>|bits<N>");
             Nav.MaskName = s;
         }
         if (r.TryGetProperty("clearance", out var c) && c.ValueKind == JsonValueKind.Number && c.TryGetSingle(out var cv) && cv >= 0 && cv <= 0.4f) Nav.Clearance = cv;
@@ -267,13 +270,17 @@ public static partial class Body
         List<object> probe = null;
         if (r.TryGetProperty("probe", out var pr) && pr.ValueKind == JsonValueKind.Array && pr.GetArrayLength() == 2)
         {
+            if (pr[0].ValueKind != JsonValueKind.Number || pr[1].ValueKind != JsonValueKind.Number) throw new BridgeError("bad probe");
             var pc = new Vector2(pr[0].GetSingle(), pr[1].GetSingle());
             float rad = r.TryGetProperty("r", out var rr) && rr.ValueKind == JsonValueKind.Number ? rr.GetSingle() : 0.3f;
+            if (float.IsNaN(rad) || rad < 0.05f || rad > 1f) throw new BridgeError("bad r (0.05..1)");
             probe = new List<object>();
             var hits = Physics2D.OverlapCircleAll(pc, rad);
             for (int i = 0; i < hits.Length && i < 40; i++)
             {
                 var h = hits[i]; if (h == null) continue;
+                // static geometry only: a probe must never become a wall-hack for players or bodies
+                if (h.GetComponentInParent<PlayerControl>() != null || h.GetComponentInParent<DeadBody>() != null) continue;
                 var bd = h.bounds;
                 probe.Add($"{h.gameObject.name} layer={h.gameObject.layer} trig={h.isTrigger} type={h.GetIl2CppType().Name} bounds=({bd.min.x:0.0},{bd.min.y:0.0})-({bd.max.x:0.0},{bd.max.y:0.0})");
             }
