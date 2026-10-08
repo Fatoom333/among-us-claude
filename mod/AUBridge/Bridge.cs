@@ -13,7 +13,7 @@ namespace AUBridge;
 // Loopback-only newline-delimited JSON server. Game access goes through Runner.Invoke (main thread).
 public static class Bridge
 {
-    const int MaxLine = 8 * 1024, MaxConns = 4, IdleMs = 5 * 60 * 1000;
+    const int MaxLine = 8 * 1024, MaxConns = 6, IdleMs = 5 * 60 * 1000;
     static int _conns;
     static byte[] _token;
 
@@ -120,13 +120,39 @@ public static class Bridge
                         Runner.Invoke(() => Runner.SetColor(col));
                         break;
                     }
+                case "configure":
+                    {
+                        Plugin.Logger.LogInfo("[AUB] cmd configure");
+                        var opts = Runner.Invoke(() => Game.Configure(root));
+                        var snap = (Dictionary<string, object>)Runner.Invoke(Runner.Snapshot);
+                        snap["options"] = opts;
+                        return snap;
+                    }
+                case "start": Plugin.Logger.LogInfo("[AUB] cmd start"); Runner.Invoke(Game.Start); break;
+                case "wait_event": return WaitEvent(root);
                 default: return Err("unknown cmd");
             }
             return Runner.Invoke(Runner.Snapshot);
         }
         catch (JsonException) { return Err("bad json"); }
+        catch (BridgeError e) { return Err(e.Message); }
         catch (TimeoutException) { return Err("game thread busy"); }
         catch (Exception e) { Plugin.Logger.LogError("[AUB] handler: " + e); return Err("internal error"); }
+    }
+
+    // Long poll: runs on the socket thread and never touches the game, so the main thread stays free.
+    static object WaitEvent(JsonElement root)
+    {
+        double timeout = 30;
+        if (root.TryGetProperty("timeout", out var tv))
+        {
+            if (tv.ValueKind != JsonValueKind.Number || !tv.TryGetDouble(out timeout) || double.IsNaN(timeout)) return Err("bad timeout");
+            timeout = Math.Max(0, Math.Min(60, timeout));
+        }
+        long since = 0;
+        if (root.TryGetProperty("since", out var sv) && (sv.ValueKind != JsonValueKind.Number || !sv.TryGetInt64(out since))) return Err("bad since");
+        var (seq, events) = Events.Wait(since, timeout);
+        return new Dictionary<string, object> { ["ok"] = true, ["seq"] = seq, ["events"] = events };
     }
 
     static string Str(JsonElement o, string k) =>
