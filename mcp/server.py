@@ -27,6 +27,7 @@ PORT_BASE = 47000
 MAX_LINE = 256 * 1024        # максимум строки ответа моста
 MAX_OUT = 48 * 1024          # максимум ответа агенту (символов)
 MAX_ARGS_BYTES = 2048
+MAX_REQ_BYTES = 6 * 1024     # у моста MaxLine = 8 КБ на запрос (Bridge.cs)
 MAX_CHAT = 100
 CMD_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 3.0
@@ -77,6 +78,7 @@ class Conn:
             if self.writer is not None and time.monotonic() - self.last_used > IDLE_CLOSE:
                 self._drop()
             for attempt in (1, 2):
+                reused = self.writer is not None
                 try:
                     if self.writer is None:
                         await self._open()
@@ -86,7 +88,10 @@ class Conn:
                     if not line:
                         raise ConnectionError("closed")
                     self.last_used = time.monotonic()
-                    return json.loads(line.decode("utf-8", "replace"))
+                    resp = json.loads(line.decode("utf-8", "replace"))
+                    if not isinstance(resp, dict):
+                        raise ValueError("not an object")
+                    return resp
                 except (asyncio.TimeoutError, TimeoutError):
                     self._drop()
                     return {"ok": False, "error": "bridge timeout"}
@@ -94,7 +99,16 @@ class Conn:
                     self._drop()
                     return {"ok": False, "error": "bad bridge response"}
                 except (ConnectionError, OSError, asyncio.IncompleteReadError):
-                    self._drop()  # второй заход — переподключение
+                    self._drop()
+                    # Повтор только для старого соединения, которое мост мог закрыть по простою.
+                    # Свежее соединение не повторяем: запрос мог уже дойти (двойной kill/chat/vote).
+                    if not reused:
+                        break
+                except BaseException:
+                    # отмена запроса клиентом (CancelledError) и прочее: ответ моста ещё в пути,
+                    # соединение выбрасываем, иначе следующий запрос прочтёт чужой ответ
+                    self._drop()
+                    raise
             return {"ok": False, "error": "bridge offline"}
 
 
@@ -143,8 +157,11 @@ def clean_args(args: dict | None) -> dict:
     return args
 
 
-def finish(resp: dict) -> dict:
+def finish(resp: dict, token: str) -> dict:
     s = json.dumps(resp, ensure_ascii=False)
+    if token in s:  # мост не должен эхом возвращать токен; на всякий случай не отдаём
+        log.info("bridge response contained token; dropped")
+        return {"ok": False, "error": "bad bridge response"}
     if len(s) > MAX_OUT:
         return {"ok": False, "error": "response too large", "size": len(s)}
     return resp
@@ -155,7 +172,9 @@ async def call_bridge(player: int, kind: str, payload: dict, timeout: float = CM
     if not token:
         return {"ok": False, "error": "bridge offline"}
     payload = dict(payload, token=token)
-    return finish(await conn(player, kind).request(payload, timeout))
+    if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > MAX_REQ_BYTES:
+        raise ToolError("request too large")
+    return finish(await conn(player, kind).request(payload, timeout), token)
 
 
 mcp = FastMCP("au", log_level="WARNING", instructions="Управление персонажем Among Us через мод-мост. "
@@ -176,7 +195,7 @@ async def au_state(player: Player, key: Key) -> dict:
 @mcp.tool()
 async def au_wait(player: Player, key: Key,
                   timeout: Annotated[int, Field(ge=0, le=55)] = 30,
-                  since: Annotated[int, Field(ge=0)] = 0) -> dict:
+                  since: Annotated[int, Field(ge=0, le=2**53)] = 0) -> dict:
     """Долгий опрос событий: вернуть {seq, events[]} после seq=since; ждёт до timeout секунд (макс. 55)."""
     check_seat(player, key)
     log.info("p%s wait t=%s since=%s", player, timeout, since)
@@ -210,7 +229,8 @@ async def au_reflex(player: Player, key: Key, set: list[dict[str, Any]]) -> dict
     if len(set) > 10:
         raise ToolError("too many reflexes (max 10)")
     for r in set:
-        if r.get("type") not in REFLEXES:
+        t = r.get("type")
+        if not isinstance(t, str) or t not in REFLEXES:
             raise ToolError("unknown reflex type; allowed: " + ", ".join(sorted(REFLEXES)))
         clean_args({k: v for k, v in r.items() if k != "type"})
     log.info("p%s reflex %s", player, json.dumps(set, ensure_ascii=False)[:300])
