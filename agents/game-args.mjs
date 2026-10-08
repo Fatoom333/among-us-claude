@@ -62,6 +62,14 @@ try {
 // Brief per seat: rules + personality + memory. Players fetch it with au_brief (they cannot read files),
 // so the texts never pass through the orchestrator's context.
 const template = fs.readFileSync(path.join(dir, 'player-prompt.md'), 'utf8');
+const COLORS = ['красный', 'синий', 'зелёный', 'розовый', 'оранжевый', 'жёлтый', 'чёрный', 'белый', 'фиолетовый', 'коричневый',
+  'голубой', 'лаймовый', 'бордовый', 'светло-розовый', 'банановый', 'серый', 'бежевый', 'коралловый'];
+const ruOf = r => (fs.readFileSync(path.join(root, r.file), 'utf8').match(/^- Имя по-русски:\s*(\S+)/m) || [])[1] || r.name;
+// Tarti's color: the same rule as roster.mjs --export-pc
+const taken = new Set(roster.map(r => r.color));
+let tartiColor = 4; while (taken.has(tartiColor)) tartiColor++;
+const table = ['- Тарти — ' + COLORS[tartiColor] + ' (человек, живой игрок)',
+  ...roster.map(r => '- ' + ruOf(r) + ' — ' + COLORS[r.color])].join('\n');
 const briefs = {};
 const players = [];
 for (const seat of seatsWanted) {
@@ -73,7 +81,7 @@ for (const seat of seatsWanted) {
   const memFile = path.join(dir, 'memory', r.name.toLowerCase() + '.md');
   const memory = fs.existsSync(memFile) ? fs.readFileSync(memFile, 'utf8') : '(первая партия: памяти пока нет)';
   briefs[seat] = template
-    .split('{{NAME}}').join(r.name).split('{{PLAYER}}').join(String(seat))
+    .split('{{NAME}}').join(ruOf(r)).split('{{TABLE}}').join(table).split('{{PLAYER}}').join(String(seat))
     .split('{{KEY}}').join('<ключ из задания>')
     .split('{{PERSONALITY}}').join(personality).split('{{MEMORY}}').join(memory);
   players.push({ seat, name: r.name, key });

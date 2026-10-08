@@ -44,11 +44,19 @@ if (args.includes('--new') || !fs.existsSync(rosterFile)) {
   roster = JSON.parse(fs.readFileSync(rosterFile, 'utf8'));
 }
 
+// Имя в игре по-русски. launch-bridge ставит латинское name (кириллица ломается в командной строке .cmd),
+// а setup_game.py переименовывает места в ru через мост уже в лобби.
+export function ruName(file) {
+  const m = fs.readFileSync(path.join(path.dirname(dir), file), 'utf8').match(/^- Имя по-русски:\s*(\S+)/m);
+  return m ? m[1] : null;
+}
+
 if (args.includes('--export-pc')) {
   // место 1 - человек (Tarti); цвет берём первый свободный из состава
   const taken = new Set(roster.map(r => r.color));
   let hc = 4; while (taken.has(hc)) hc++;
-  const exp = [{ id: 1, name: 'Tarti', color: hc }, ...roster.map(r => ({ id: r.seat, name: r.name, color: r.color }))];
+  const exp = [{ id: 1, name: 'Tarti', ru: 'Тарти', color: hc },
+    ...roster.map(r => ({ id: r.seat, name: r.name, ru: ruName(r.file) || r.name, color: r.color }))];
   const out = path.join(dir, 'roster.json');
   fs.writeFileSync(out, JSON.stringify(exp, null, 2));
   console.error('экспорт: ' + out + ' (скопировать на ПК в D:/AmongUs-tools/bridge/roster.json)');

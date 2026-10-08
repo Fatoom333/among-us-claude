@@ -2,51 +2,61 @@
   {
     "id": 1,
     "name": "Tarti",
+    "ru": "Тарти",
     "color": 4
   },
   {
     "id": 2,
     "name": "Filosof",
+    "ru": "Философ",
     "color": 8
   },
   {
     "id": 3,
     "name": "Trusishka",
+    "ru": "Трусишка",
     "color": 14
   },
   {
     "id": 4,
     "name": "Odin",
+    "ru": "Один",
     "color": 7
   },
   {
     "id": 5,
     "name": "Novichok",
+    "ru": "Новичок",
     "color": 11
   },
   {
     "id": 6,
     "name": "Holmsik",
+    "ru": "Холмсик",
     "color": 9
   },
   {
     "id": 7,
     "name": "Hitrets",
+    "ru": "Хитрец",
     "color": 3
   },
   {
     "id": 8,
     "name": "Kapitan",
+    "ru": "Капитан",
     "color": 1
   },
   {
     "id": 9,
     "name": "Haos",
+    "ru": "Хаос",
     "color": 0
   },
   {
     "id": 10,
     "name": "Vorchun",
+    "ru": "Ворчун",
     "color": 2
   }
 ]
