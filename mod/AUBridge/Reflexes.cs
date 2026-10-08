@@ -374,8 +374,9 @@ public static partial class Body
             else
             {
                 var c0 = cons[0]; float mine = Vector2.Distance(pos, c0.pos); int ahead = 0;
-                // others at the panel or closer to it than we are (on their way there)
-                foreach (var v in vis) { float dv = Vector2.Distance(v.Pos, c0.pos); if (dv < mine && dv <= 9f) ahead++; }
+                // rank by distance to the panel among the living crew we can see (+ us): go only if fewer than max visible are closer.
+                // No distance cutoff: far-away players still count, so a crowd converging from afar does not all decide "nobody is near".
+                foreach (var v in vis) { if (v.Alive && Vector2.Distance(v.Pos, c0.pos) < mine) ahead++; }
                 if (d.MaxFixers > 0 && ahead >= d.MaxFixers && now - _fxSeenAt < 15f) return; // let them; go anyway after 15 s
                 cons = new List<(Vector2, int)> { c0 }; note = ahead >= d.MaxFixers && d.MaxFixers > 0 ? $"{ahead} others near but still active after 15 s" : $"{ahead} others near";
             }

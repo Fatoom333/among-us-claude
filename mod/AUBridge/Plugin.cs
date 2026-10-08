@@ -95,6 +95,7 @@ public class Plugin : BasePlugin
         if (Cfg == null) { Log.LogInfo("[AUB] no --aub-id, plugin inactive"); return; }
         Log.LogInfo($"[AUB] id={Cfg.Id} mode={Cfg.Mode} name={Cfg.Name} color={Cfg.Color} outfit={(Cfg.Outfit != null ? string.Join(",", Cfg.Outfit.Keys) : "none")} port={Cfg.Port} token={(Cfg.Token != null ? "set" : "none")}");
 
+        if (Cfg.Mute) Log.LogInfo("[AUB] audio muted");
         var harmony = new Harmony(PluginId);
         harmony.PatchAll(typeof(Patches));
         foreach (var t in new[] { typeof(PMurder), typeof(PStartMeeting), typeof(PChat), typeof(PGameEnd), typeof(PVotingComplete), typeof(PCastVote), typeof(PVentEnter), typeof(PVentExit), typeof(PPhysics), typeof(PJoyKey) })
