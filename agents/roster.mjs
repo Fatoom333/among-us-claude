@@ -45,7 +45,10 @@ if (args.includes('--new') || !fs.existsSync(rosterFile)) {
 }
 
 if (args.includes('--export-pc')) {
-  const exp = roster.map(r => ({ id: r.seat, name: r.name, color: r.color }));
+  // место 1 - человек (Tarti); цвет берём первый свободный из состава
+  const taken = new Set(roster.map(r => r.color));
+  let hc = 4; while (taken.has(hc)) hc++;
+  const exp = [{ id: 1, name: 'Tarti', color: hc }, ...roster.map(r => ({ id: r.seat, name: r.name, color: r.color }))];
   const out = path.join(dir, 'roster.json');
   fs.writeFileSync(out, JSON.stringify(exp, null, 2));
   console.error('экспорт: ' + out + ' (скопировать на ПК в D:/AmongUs-tools/bridge/roster.json)');

@@ -1,0 +1,56 @@
+[
+  {
+    "seat": 2,
+    "name": "Filosof",
+    "color": 8,
+    "file": "agents/personalities/filosof.md"
+  },
+  {
+    "seat": 3,
+    "name": "Trusishka",
+    "color": 14,
+    "file": "agents/personalities/trusishka.md"
+  },
+  {
+    "seat": 4,
+    "name": "Odin",
+    "color": 7,
+    "file": "agents/personalities/odin.md"
+  },
+  {
+    "seat": 5,
+    "name": "Novichok",
+    "color": 11,
+    "file": "agents/personalities/novichok.md"
+  },
+  {
+    "seat": 6,
+    "name": "Holmsik",
+    "color": 9,
+    "file": "agents/personalities/holmsik.md"
+  },
+  {
+    "seat": 7,
+    "name": "Hitrets",
+    "color": 3,
+    "file": "agents/personalities/hitrets.md"
+  },
+  {
+    "seat": 8,
+    "name": "Kapitan",
+    "color": 1,
+    "file": "agents/personalities/kapitan.md"
+  },
+  {
+    "seat": 9,
+    "name": "Haos",
+    "color": 0,
+    "file": "agents/personalities/haos.md"
+  },
+  {
+    "seat": 10,
+    "name": "Vorchun",
+    "color": 2,
+    "file": "agents/personalities/vorchun.md"
+  }
+]
