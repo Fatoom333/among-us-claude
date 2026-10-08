@@ -245,7 +245,7 @@ public static partial class Body
     internal static Dictionary<string, object> ActSabotage(ActArgs a)
     {
         var me = Me;
-        NeedLive();
+        NeedLive(false); // a dead impostor (ghost) may still sabotage, as in the game
         if (!Game.AmImpostor(me)) throw new BridgeError("only an impostor can sabotage");
         var sys = SabSystem(a.Type);
         var ship = ShipStatus.Instance;

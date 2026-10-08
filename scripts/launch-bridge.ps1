@@ -1,5 +1,6 @@
 # Launches N Among Us copies with AUBridge: copy 1 on host (hosts lobby), 2..N in Sandboxie boxes AU2..AUN (join).
-param([int]$N = 10, [switch]$NewTokens, [int]$Delay = 15)
+# -HumanSeat $true (default): copy 1 (the human, Tarti) gets a fullscreen-sized 1920x1080 borderless window; $false: copy 1 is small like the others.
+param([int]$N = 10, [switch]$NewTokens, [int]$Delay = 15, [bool]$HumanSeat = $true)
 $ErrorActionPreference = 'Stop'
 $tools = 'D:\AmongUs-tools'
 $tokDir = "$tools\bridge\tokens"; $runDir = "$tools\bridge\run"; $logDir = "$tools\logs"
@@ -25,7 +26,7 @@ foreach ($id in 1..$N) {
     $name = "P$id"; $color = ($id - 1) % 18
     if ($roster.ContainsKey($id)) { if ($roster[$id].name) { $name = $roster[$id].name }; if ($null -ne $roster[$id].color) { $color = [int]$roster[$id].color } }
     $mode = if ($id -eq 1) { 'host' } else { 'join' }
-    $size = if ($id -eq 1) { '-screen-width 960 -screen-height 540' } else { '-screen-width 640 -screen-height 400' }
+    $size = if ($id -eq 1 -and $HumanSeat) { '-popupwindow -screen-fullscreen 0 -screen-width 1920 -screen-height 1080' } elseif ($id -eq 1) { '-screen-width 960 -screen-height 540' } else { '-screen-width 640 -screen-height 400' }
     $cmd = "$runDir\run-au$id.cmd"
     $line = "@`"$leg`" launch $game --skip-version-check --override-exe `"D:\AmongUs-mod\Among Us.exe`" -logFile `"$logDir\bridge$id.log`" -screen-fullscreen 0 $size --aub-id=$id --aub-mode=$mode `"--aub-name=$name`" --aub-color=$color --aub-token=$tok > `"$logDir\legendary-bridge$id.log`" 2>&1"
     Set-Content -Path $cmd -Value $line -Encoding ASCII

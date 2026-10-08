@@ -47,7 +47,8 @@ def main():
     except Exception:
         core.log.exception("cli internal error")
         resp = {"ok": False, "error": "internal error"}
-    sys.stdout.write(json.dumps(resp, ensure_ascii=False) + "\n")
+    # ASCII-only output: survives any ssh / console code page; scripts/au.ps1 turns the escapes back into text
+    sys.stdout.write(json.dumps(resp, ensure_ascii=True) + "\n")
 
 
 if __name__ == "__main__":
