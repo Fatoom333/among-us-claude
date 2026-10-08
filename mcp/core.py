@@ -32,7 +32,7 @@ IDLE_CLOSE = 90.0
 ACTIONS = {"move_to", "follow", "wander", "stay", "idle", "do_task", "report", "call_meeting",
            "vote", "chat", "kill", "vent", "sabotage", "fix"}
 REFLEXES = {"kill_if_alone", "report_on_body", "flee_on_kill_seen", "stick_to_group",
-            "avoid", "self_report"}
+            "avoid", "self_report", "fix_sabotage"}
 RESERVED = {"cmd", "token", "do", "set", "timeout", "since"}
 
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -198,6 +198,10 @@ def check_reflexes(rset) -> list:
         if not isinstance(t, str) or t not in REFLEXES:
             raise AuError("unknown reflex type; allowed: " + ", ".join(sorted(REFLEXES)))
         clean_args({k: v for k, v in r.items() if k != "type"})
+        if "max" in r:
+            m = r["max"]
+            if isinstance(m, bool) or not isinstance(m, int) or not 0 <= m <= 9:
+                raise AuError("max must be an integer 0..9")
     return rset
 
 
