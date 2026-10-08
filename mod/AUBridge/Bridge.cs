@@ -120,6 +120,22 @@ public static class Bridge
                         Runner.Invoke(() => Runner.SetColor(col));
                         break;
                     }
+                case "cosmetics":
+                    {
+                        var cat = Str(root, "category");
+                        if (cat != null && Array.IndexOf(Cosmetics.Cats, cat) < 0) return Err("bad category");
+                        bool uo = root.TryGetProperty("usable_only", out var uov) && uov.ValueKind == JsonValueKind.True;
+                        return Runner.Invoke(() => Cosmetics.Catalog(cat, uo));
+                    }
+                case "setoutfit":
+                    {
+                        var of = Cosmetics.ParseFields(root, out var oerr);
+                        if (of == null) return Err(oerr);
+                        if (of.Count == 0) return Err("no outfit fields");
+                        Plugin.Logger.LogInfo("[AUB] cmd setoutfit " + string.Join(",", of.Keys));
+                        Runner.Invoke(() => Runner.SetOutfit(of)); // validates (BridgeError -> error reply)
+                        break;
+                    }
                 case "configure":
                     {
                         Plugin.Logger.LogInfo("[AUB] cmd configure");

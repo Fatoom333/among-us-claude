@@ -32,3 +32,9 @@
 3. В лобби с двумя копиями: на копии A `RpcSetHat(<id, которого нет в GetUnlockedHats>)`, на копии B прочитать `Data.DefaultOutfit.HatId` игрока A (или посмотреть экран) - подтвердит пункт 4.
 4. Проверить, вызывает ли кто-то `CheckValidCosmetic` (лог Harmony-префикса на нём 1 раз).
 Источники: github.com/astra1dev/AUnlocker (src/Patches/CosmeticsPatches.cs), ссылка в нём на MalumMenu CosmeticsUnlocker.cs.
+
+## 6. Реализовано в мосте (08.10.2026, не проверено вживую)
+- Код: `AUBridge/Cosmetics.cs`, команды `cosmetics` и `setoutfit` в `Bridge.cs`, применение в `Runner.ApplyIdentity` (локально через `Customization`, в лобби через `RpcSet*`, до 5 попыток на поле), аргумент `--aub-outfit` в `AubConfig` (Plugin.cs).
+- Владение: `owned = Free || DataManager.Player.Purchases.GetPurchase(ProdId, BundleId)`. Патчей, открывающих платное, нет и не будет: чужое = ошибка `not owned`.
+- Имя предмета: `CosmeticData.GetItemName()` (может вернуть ключ перевода или пустое; тогда поля `name` нет).
+- [ПРОВЕРИТЬ на ПК] (1) сколько предметов реально `free`/`owned` на Epic-аккаунте; (2) размер ответа `cosmetics` целиком (< 256 КБ?); (3) совпадает ли `DefaultOutfit.HatId` с ProdId после `RpcSetHat` (иначе ретраи впустую - максимум 5); (4) не откатывает ли игра чужие `Customization` в лобби; (5) `GetItemName()` без локализатора.

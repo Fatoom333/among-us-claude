@@ -46,6 +46,19 @@ if (args.includes('--new') || !fs.existsSync(rosterFile)) {
 
 // Имя в игре по-русски. launch-bridge ставит латинское name (кириллица ломается в командной строке .cmd),
 // а setup_game.py переименовывает места в ru через мост уже в лобби.
+// Облик (косметика): строка «- Облик: {"hat":"hat_...","skin":"...","visor":"...","pet":"...","nameplate":"..."}» в файле личности.
+// Все поля необязательные; мод сам проверит id по каталогу и владение (Free или куплено).
+export function outfitOf(file) {
+  const m = fs.readFileSync(path.join(path.dirname(dir), file), 'utf8').match(/^- Облик:\s*(\{.*\})\s*$/m);
+  if (!m) return null;
+  try {
+    const j = JSON.parse(m[1]);
+    const o = {};
+    for (const k of ['hat', 'skin', 'visor', 'pet', 'nameplate']) if (typeof j[k] === 'string' && j[k] && j[k].length <= 100) o[k] = j[k];
+    return Object.keys(o).length ? o : null;
+  } catch { console.error('Облик: битый JSON в ' + file); return null; }
+}
+
 export function ruName(file) {
   const m = fs.readFileSync(path.join(path.dirname(dir), file), 'utf8').match(/^- Имя по-русски:\s*(\S+)/m);
   return m ? m[1] : null;
@@ -56,7 +69,7 @@ if (args.includes('--export-pc')) {
   const taken = new Set(roster.map(r => r.color));
   let hc = 4; while (taken.has(hc)) hc++;
   const exp = [{ id: 1, name: 'Tarti', ru: 'Тарти', color: hc },
-    ...roster.map(r => ({ id: r.seat, name: r.name, ru: ruName(r.file) || r.name, color: r.color }))];
+    ...roster.map(r => { const o = outfitOf(r.file); return { id: r.seat, name: r.name, ru: ruName(r.file) || r.name, color: r.color, ...(o ? { outfit: o } : {}) }; })];
   const out = path.join(dir, 'roster.json');
   fs.writeFileSync(out, JSON.stringify(exp, null, 2));
   console.error('экспорт: ' + out + ' (скопировать на ПК в D:/AmongUs-tools/bridge/roster.json)');

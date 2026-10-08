@@ -22,6 +22,9 @@ public class Runner : MonoBehaviour
     static float _lastIdentity, _lastAnnounce;
     static int _nameTries, _colorTries;
     static bool _searchWarned;
+    static Dictionary<string, string> _outfit; // wanted cosmetics (validated); null = nothing to apply
+    static bool _outfitChecked;                // launch-arg outfit validated against the catalog
+    static readonly int[] _outfitTries = new int[5];
 
     // ---- cross-thread entry points (called from socket threads) ----
     public static T Invoke<T>(Func<T> f)
@@ -40,9 +43,19 @@ public class Runner : MonoBehaviour
     public static void SetName(string n) { _name = n; _nameTries = 0; _lastIdentity = 0; }
     public static void SetColor(int c) { _color = c; _colorTries = 0; _lastIdentity = 0; }
 
+    // Called on the main thread. Every item must be Free or owned; otherwise BridgeError and nothing changes.
+    public static void SetOutfit(Dictionary<string, string> o)
+    {
+        foreach (var kv in o) { var e = Cosmetics.Check(kv.Key, kv.Value); if (e != null) throw new BridgeError(e); }
+        _outfit ??= new Dictionary<string, string>();
+        foreach (var kv in o) _outfit[kv.Key] = kv.Value;
+        _outfitChecked = true; Array.Clear(_outfitTries, 0, _outfitTries.Length); _lastIdentity = 0;
+    }
+
     void Awake()
     {
         var c = Plugin.Cfg;
+        if (c.Outfit != null) _outfit = new Dictionary<string, string>(c.Outfit);
         _mode = c.Mode; _name = c.Name; _color = c.Color; _searchStart = Time.realtimeSinceStartup;
         Plugin.Logger.LogInfo("[AUB] runner started");
     }
@@ -82,6 +95,8 @@ public class Runner : MonoBehaviour
         if (_name != null && cust.Name != _name) cust.Name = _name;
         if (_color >= 0 && cust.Color != (byte)_color) cust.Color = (byte)_color;
 
+        ApplyOutfitLocal();
+
         // In the lobby the networked copy must be updated too; retries are capped so we never fight the host's colour dedup.
         var lp = PlayerControl.LocalPlayer;
         if (!InGame || lp == null || lp.Data == null || now - _lastIdentity < 2f) return;
@@ -89,6 +104,47 @@ public class Runner : MonoBehaviour
         if (_name != null && lp.Data.PlayerName != _name && _nameTries++ < 5) lp.CmdCheckName(_name);
         if (_color >= 0 && lp.Data.DefaultOutfit != null && lp.Data.DefaultOutfit.ColorId != _color && _colorTries++ < 5)
             lp.CmdCheckColor((byte)_color);
+        ApplyOutfitNet(lp);
+    }
+
+    // Launch-arg outfit is checked once the catalog exists; invalid/unowned items are dropped with a log line.
+    static bool OutfitReady()
+    {
+        if (_outfit == null) return false;
+        if (_outfitChecked) return true;
+        if (HatManager.Instance == null) return false;
+        _outfitChecked = true;
+        foreach (var k in new List<string>(_outfit.Keys))
+        {
+            var e = Cosmetics.Check(k, _outfit[k]);
+            if (e != null) { Plugin.Logger.LogWarning("[AUB] outfit: dropped " + k + " (" + e + ")"); _outfit.Remove(k); }
+        }
+        if (_outfit.Count == 0) _outfit = null;
+        return _outfit != null;
+    }
+
+    static void ApplyOutfitLocal()
+    {
+        if (!OutfitReady()) return;
+        var c = DataManager.Player.Customization;
+        if (_outfit.TryGetValue("hat", out var h) && c.Hat != h) c.Hat = h;
+        if (_outfit.TryGetValue("skin", out var s) && c.Skin != s) c.Skin = s;
+        if (_outfit.TryGetValue("visor", out var v) && c.Visor != v) c.Visor = v;
+        if (_outfit.TryGetValue("pet", out var p) && c.Pet != p) c.Pet = p;
+        if (_outfit.TryGetValue("nameplate", out var n) && c.NamePlate != n) c.NamePlate = n;
+    }
+
+    // In the lobby: send RpcSet* for every field the networked outfit does not match yet (max 5 tries per field).
+    static void ApplyOutfitNet(PlayerControl lp)
+    {
+        if (!OutfitReady()) return;
+        var o = lp.Data.DefaultOutfit;
+        if (o == null) return;
+        if (_outfit.TryGetValue("hat", out var h) && o.HatId != h && _outfitTries[0]++ < 5) lp.RpcSetHat(h);
+        if (_outfit.TryGetValue("skin", out var s) && o.SkinId != s && _outfitTries[1]++ < 5) lp.RpcSetSkin(s);
+        if (_outfit.TryGetValue("visor", out var v) && o.VisorId != v && _outfitTries[2]++ < 5) lp.RpcSetVisor(v);
+        if (_outfit.TryGetValue("pet", out var p) && o.PetId != p && _outfitTries[3]++ < 5) lp.RpcSetPet(p);
+        if (_outfit.TryGetValue("nameplate", out var n) && o.NamePlateId != n && _outfitTries[4]++ < 5) lp.RpcSetNamePlate(n);
     }
 
     // Announcements popup is closed through its own Close(); it only dismisses, nothing else.
