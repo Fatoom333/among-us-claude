@@ -14,8 +14,8 @@ public class BridgeError : Exception { public BridgeError(string m) : base(m) { 
 public static class Game
 {
     static AmongUsClient Client => AmongUsClient.Instance;
-    static PlayerControl Me => PlayerControl.LocalPlayer;
-    static bool ShipUp => Client != null && Client.GameState == InnerNetClient.GameStates.Started
+    internal static PlayerControl Me => PlayerControl.LocalPlayer;
+    internal static bool ShipUp => Client != null && Client.GameState == InnerNetClient.GameStates.Started
                           && ShipStatus.Instance != null && Me != null && Me.Data != null;
 
     static double R(float v) => Math.Round(v, 2);
@@ -23,13 +23,15 @@ public static class Game
 
     // ---------------- match flags ----------------
     static bool _started, _ended;
+    internal static bool Started => _started && !_ended;
+    internal static bool InMeetingOrExile => MeetingHud.Instance != null || ExileController.Instance != null;
     static int _round;
     static float _shipSeenAt, _next, _nextTick1s, _closeLogAt;
     static string _gameId = "";
     static string _warnLast; static float _warnAt;
 
     // honest visibility
-    sealed class PInfo { public byte Id; public string Name; public int Color; public Vector2 Pos; public string Room; public bool Alive; public float Dist; public bool InVent; }
+    internal sealed class PInfo { public byte Id; public string Name; public int Color; public Vector2 Pos; public string Room; public bool Alive; public float Dist; public bool InVent; }
     static readonly HashSet<byte> _stable = new();
     static readonly Dictionary<byte, float> _lastRaw = new();
     static readonly Dictionary<byte, PInfo> _lastInfo = new();
@@ -56,7 +58,7 @@ public static class Game
     }
 
     // ---------------- geometry / visibility ----------------
-    static string RoomAt(Vector2 p)
+    internal static string RoomAt(Vector2 p)
     {
         var ship = ShipStatus.Instance;
         var rooms = ship != null ? ship.AllRooms : null;
@@ -70,7 +72,7 @@ public static class Game
         return null;
     }
 
-    static float LightRadius(PlayerControl me)
+    internal static float LightRadius(PlayerControl me)
     {
         try { return ShipStatus.Instance.CalculateLightRadius(me.Data); } catch { return 3f; }
     }
@@ -90,7 +92,7 @@ public static class Game
         };
     }
 
-    static List<PInfo> Visible(PlayerControl me, Vector2 a, float radius)
+    internal static List<PInfo> Visible(PlayerControl me, Vector2 a, float radius)
     {
         var res = new List<PInfo>();
         bool ghost = me.Data.IsDead;
@@ -142,7 +144,7 @@ public static class Game
             default: return d.RoleType.ToString().ToLowerInvariant();
         }
     }
-    static bool AmImpostor(PlayerControl me) => me.Data.Role != null && me.Data.Role.IsImpostor;
+    internal static bool AmImpostor(PlayerControl me) => me.Data.Role != null && me.Data.Role.IsImpostor;
 
     // Partner is only ever looked up when the local player is an impostor (the game shows teammates to impostors anyway).
     static string Partner(PlayerControl me)
@@ -158,7 +160,7 @@ public static class Game
         return null;
     }
 
-    static bool IsSabTask(TaskTypes t) =>
+    internal static bool IsSabTask(TaskTypes t) =>
         t == TaskTypes.ResetReactor || t == TaskTypes.FixLights || t == TaskTypes.FixComms || t == TaskTypes.RestoreOxy ||
         t == TaskTypes.ResetSeismic || t == TaskTypes.MushroomMixupSabotage || t == TaskTypes.None;
 
@@ -322,7 +324,7 @@ public static class Game
             },
             ["tasks"] = Tasks(me), ["taskBar"] = taskBar, ["visible"] = vis, ["bodies"] = bodies,
             ["sabotage"] = new Dictionary<string, object> { ["active"] = sab.type, ["timer"] = sab.timer, ["cooldown"] = SabotageCooldown() },
-            ["meeting"] = MeetingState(), ["busy"] = "idle", ["reflexes"] = new List<object>(),
+            ["meeting"] = MeetingState(), ["busy"] = Body.Busy(), ["body"] = Body.Info(), ["reflexes"] = new List<object>(),
         };
     }
 
@@ -339,6 +341,7 @@ public static class Game
     static void ResetMatch()
     {
         _started = false; _ended = false; _inMeeting = false; _votingAnnounced = false; _allDoneSent = false; _wasDead = false; _deathSent = false;
+        Body.OnMatchReset();
         _stable.Clear(); _lastRaw.Clear(); _lastInfo.Clear(); _seenBodies.Clear(); _taskDone.Clear(); _voted.Clear(); _chat.Clear();
         _room = _roomCand = _sabType = null; _shipSeenAt = 0; _exiledSet = false; _results = null; _meetCaller = _meetBody = null;
     }
@@ -440,6 +443,7 @@ public static class Game
         _wasDead = me.Data.IsDead; _deathSent = false; _exiledMe = false;
         var tasks = Tasks(me);
         foreach (var t in tasks) _taskDone[(uint)t["id"]] = false;
+        Body.OnMatchStart();
         Events.Add("game_started", "gameId", _gameId, "role", RoleName(me.Data), "partner", Partner(me), "tasks", tasks);
     }
 

@@ -52,6 +52,7 @@ public class Runner : MonoBehaviour
         for (int i = 0; i < 32 && Queue.TryDequeue(out var a); i++) a();
         float now = Time.realtimeSinceStartup;
         Game.Update(now);
+        try { Body.Update(now); } catch (Exception e) { Plugin.Logger.LogError("[AUB] body: " + e.Message); }
         if (now < _nextTick) return;
         _nextTick = now + 0.5f;
         try { Tick(now); }
