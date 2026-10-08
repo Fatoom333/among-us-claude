@@ -24,7 +24,7 @@ MAX_LINE = 256 * 1024        # максимум строки ответа мос
 MAX_OUT = 48 * 1024          # максимум ответа агенту (символов)
 MAX_ARGS_BYTES = 2048
 MAX_REQ_BYTES = 6 * 1024     # у моста MaxLine = 8 КБ на запрос (Bridge.cs)
-MAX_CHAT = 100
+MAX_CHAT = 60             # human chat style: short pieces; a longer thought goes as several messages
 CMD_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 3.0
 IDLE_CLOSE = 90.0
@@ -182,7 +182,7 @@ def check_act(do, args) -> dict:
         if not isinstance(text, str) or not text.strip():
             raise AuError("chat needs args.text")
         if len(text) > MAX_CHAT:
-            raise AuError(f"chat text longer than {MAX_CHAT}")
+            raise AuError(f"too long ({len(text)} > {MAX_CHAT}): write like a human in chat - 2-6 words; split a longer thought into several short messages")
     return args
 
 
