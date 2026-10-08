@@ -3,6 +3,7 @@
 //   node agents/game-args.mjs [--seats 2-10 | 2,3,5] [--autopilot 1[,4]] [--game-id YYYYMMDD-gN] [--impostors 2] [--no-setup]
 // Состав — agents/roster-current.json, ключи мест — D:/AmongUs-tools/bridge/seats.json (на ПК напрямую, с ноутбука по ssh pc).
 // Брифы мест (правила + характер + память) кладёт в D:/AmongUs-tools/briefs/p<место>.md: игрок берёт свой через au_brief.
+// setup=true (крупье сам стартует) только когда место 1 на автопилоте; если играет человек, старт за ним.
 // В stdout только короткие args (имена и ключи); в stderr и логи ключи не пишутся.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -100,6 +101,6 @@ try {
 
 const impostors = Number(opt('impostors') ?? 2);
 if (!Number.isInteger(impostors) || impostors < 1 || impostors > 3) { console.error('--impostors: 1..3'); process.exit(2); }
-const out = { gameId, players, setup: !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
+const out = { gameId, players, setup: autopilot.includes(1) && !argv.includes('--no-setup'), impostors, autopilotSeats: autopilot };
 process.stdout.write(JSON.stringify(out) + '\n');
 console.error(`game ${gameId}: ${players.length} игроков (${players.map(p => p.name + '#' + p.seat).join(', ')}), автопилот: [${autopilot}], брифы разложены`);
