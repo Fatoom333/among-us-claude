@@ -11,7 +11,7 @@ public sealed class ReflexDef
     public int MaxWitnesses;
     public float Distance = 4f;
     public int Min = 2;
-    public int MaxFixers = 2; // fix_sabotage: lights/comms crowd limit (0 = no limit)
+    public float Eagerness = 0.6f; // fix_sabotage: 0 = reluctant (~20 s base delay), 1 = goes at once
 }
 
 // Reflexes: checked ~10 times per second inside the mod; the agent only switches them on.
@@ -61,11 +61,12 @@ public static partial class Body
                 if (mn.ValueKind != JsonValueKind.Number || !mn.TryGetInt32(out var mnv) || mnv < 1 || mnv > 9) throw new BridgeError("bad min (1..9)");
                 d.Min = mnv;
             }
-            if (e.TryGetProperty("max", out var mx) && mx.ValueKind != JsonValueKind.Null)
+            if (e.TryGetProperty("eagerness", out var eg) && eg.ValueKind != JsonValueKind.Null)
             {
-                if (mx.ValueKind != JsonValueKind.Number || !mx.TryGetInt32(out var mxv) || mxv < 0 || mxv > 9) throw new BridgeError("bad max (0..9)");
-                d.MaxFixers = mxv;
+                if (eg.ValueKind != JsonValueKind.Number || !eg.TryGetSingle(out var egv) || float.IsNaN(egv) || egv < 0f || egv > 1f) throw new BridgeError("bad eagerness (0..1)");
+                d.Eagerness = egv;
             }
+            // legacy 'max' for fix_sabotage is ignored on purpose
             if (d.Type == "avoid" && string.IsNullOrEmpty(d.Target)) throw new BridgeError("avoid needs target");
             foreach (var o in res) if (o.Type == d.Type && (d.Type != "avoid" || string.Equals(o.Target, d.Target, StringComparison.OrdinalIgnoreCase))) throw new BridgeError("duplicate reflex " + d.Type);
             res.Add(d);
@@ -92,8 +93,7 @@ public static partial class Body
                 if ((d.Type == "kill_if_alone" || d.Type == "self_report") && !Game.AmImpostor(me)) throw new BridgeError(d.Type + " is only for impostors");
                 if (d.Type == "fix_sabotage")
                 {
-                    if (Game.AmImpostor(me)) throw new BridgeError("fix_sabotage is only for crew");
-                    if (me.Data == null || me.Data.IsDead) throw new BridgeError("fix_sabotage is only for living crew");
+                    if (me.Data == null || me.Data.IsDead) throw new BridgeError("fix_sabotage is only for living players");
                 }
                 if (!string.IsNullOrEmpty(d.Target) && !string.Equals(d.Target, "any", StringComparison.OrdinalIgnoreCase) && !PlayerNameExists(d.Target)) throw new BridgeError("unknown player '" + d.Target + "'");
             }
@@ -123,7 +123,7 @@ public static partial class Body
             if (d.Type == "kill_if_alone") { o["target"] = d.Target ?? "any"; o["maxWitnesses"] = d.MaxWitnesses; }
             if (d.Type == "avoid") { o["target"] = d.Target; o["distance"] = d.Distance; }
             if (d.Type == "stick_to_group") o["min"] = d.Min;
-            if (d.Type == "fix_sabotage") o["max"] = d.MaxFixers;
+            if (d.Type == "fix_sabotage") o["eagerness"] = d.Eagerness;
             res.Add(o);
         }
         return res;
@@ -277,7 +277,7 @@ public static partial class Body
         }
 
         // fix_sabotage
-        if (Find("fix_sabotage") != null && !imp) FixSabotageReflex(me, pos, now, vis);
+        if (Find("fix_sabotage") != null) FixSabotageReflex(me, pos, now, vis);
 
         // avoid
         foreach (var d in _reflexes)
@@ -344,7 +344,10 @@ public static partial class Body
         else if (_ovr == "r_group") EndOverride();
     }
 
-    // crew: go and repair an active sabotage on our own; lights/comms are not swarmed by the whole crowd
+    // go and repair an active sabotage on our own, when our personal delay has run out (impostors too: it is cover).
+    // delay = base(eagerness) * distFactor * urgency(age) * (emergency ? 0.3 : 1) [+ short courtesy delay if someone already works the panel]
+    //   base = 20 s * (1 - eagerness); distFactor = 0.5 (panel within 5) .. 1.5 (30+ away); urgency = max(0, 1 - age/27 s)
+    // so everybody goes by ~27 s after the sabotage began, whatever their eagerness. age counts from the start of the sabotage, not from a meeting's end.
     static void FixSabotageReflex(PlayerControl me, Vector2 pos, float now, List<Game.PInfo> vis)
     {
         var sab = Game.Sabotage().type;
@@ -354,7 +357,15 @@ public static partial class Body
         List<(Vector2 pos, int id)> cons;
         try { cons = SabConsoles(me, sab); } catch (BridgeError) { return; } // repair task not delivered yet: try next tick
         var d = Find("fix_sabotage");
+        bool emergency = sab == "reactor" || sab == "o2";
+        float age = now - _fxSeenAt;
+        float urgency = Mathf.Max(0f, 1f - age / 27f);
         string note;
+        float nearest = float.MaxValue;
+        foreach (var c in cons) nearest = Mathf.Min(nearest, Vector2.Distance(pos, c.pos));
+        float distFactor = 0.5f + Mathf.Clamp01((nearest - 5f) / 25f);
+        float delay = 20f * (1f - d.Eagerness) * distFactor * (emergency ? 0.3f : 1f);
+        string why = $"base {delay:0.0}s";
         if (sab == "reactor")
         {
             // the console (id 0/1) with fewer visible repairers, then the closer one
@@ -373,19 +384,19 @@ public static partial class Body
             if (sab == "o2") note = "both O2 panels";
             else
             {
-                var c0 = cons[0]; float mine = Vector2.Distance(pos, c0.pos); int ahead = 0;
-                // rank by distance to the panel among the living crew we can see (+ us): go only if fewer than max visible are closer.
-                // No distance cutoff: far-away players still count, so a crowd converging from afar does not all decide "nobody is near".
-                foreach (var v in vis) { if (v.Alive && Vector2.Distance(v.Pos, c0.pos) < mine) ahead++; }
-                if (d.MaxFixers > 0 && ahead >= d.MaxFixers && now - _fxSeenAt < 15f) return; // let them; go anyway after 15 s
-                cons = new List<(Vector2, int)> { c0 }; note = ahead >= d.MaxFixers && d.MaxFixers > 0 ? $"{ahead} others near but still active after 15 s" : $"{ahead} others near";
+                var c0 = cons[0]; int atPanel = 0;
+                foreach (var v in vis) if (v.Alive && Vector2.Distance(v.Pos, c0.pos) < 2.5f) atPanel++;
+                if (atPanel > 0) { delay += 5f; why += ", +5s: someone already at the panel"; }
+                cons = new List<(Vector2, int)> { c0 }; note = $"{atPanel} at the panel";
             }
         }
+        float need = delay * urgency;
+        if (age < need) return; // not yet: urgency keeps shrinking the wait, at ~27 s it is zero for everybody
         if (!BeginOverride("r_fix", 2)) return;
         _fxType = sab; _fxActive = true; _fxHolding = false; _fxPhase = 0; _fxQueue = cons; _fxOps = 0; _fxEndAt = 0;
         _fxCurId = cons[0].id;
         if (!SetGoal(pos, cons[0].pos)) { _fxActive = false; _fxRetryAt = now + 3f; EndOverride(); return; }
-        Fire("fix_sabotage", $"{sab}: going to fix, {note}");
+        Fire("fix_sabotage", $"{sab}: going to fix after {age:0.0}s ({why}, dist {nearest:0}, urgency {urgency:0.00}), {note}");
     }
 
     // a point away from the threat that we can reach on foot
