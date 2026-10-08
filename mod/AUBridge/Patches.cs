@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HarmonyLib;
 
 namespace AUBridge;
@@ -28,12 +28,17 @@ public static class Patches
         return false;
     }
 
-    // Safety net: if the popup still appears, hide it. Never press its buttons.
+    // The popup still appears (the login flow reaches it natively). Do not hide it and leave the login stuck:
+    // remember it, Runner then presses its "Not right now" button (never the "go ahead" one).
+    public static AskToMergeGuest PendingPopup;
+    public static float PopupSeen;
+
     [HarmonyPatch(typeof(AskToMergeGuest), nameof(AskToMergeGuest.Start))]
     [HarmonyPostfix]
     public static void HideMergePopup(AskToMergeGuest __instance)
     {
-        Plugin.Logger.LogWarning("[AUB] AskToMergeGuest.Start ran anyway; hiding it (no merge)");
-        __instance.gameObject.SetActive(false);
+        Plugin.Logger.LogWarning("[AUB] AskToMergeGuest.Start ran; will press 'Not right now' (no merge)");
+        PendingPopup = __instance;
+        PopupSeen = UnityEngine.Time.realtimeSinceStartup;
     }
 }
