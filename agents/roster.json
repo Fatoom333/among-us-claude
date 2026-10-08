@@ -9,54 +9,91 @@
     "id": 2,
     "name": "Filosof",
     "ru": "Философ",
-    "color": 8
+    "color": 8,
+    "outfit": {
+      "hat": "hat_mira_cloud",
+      "nameplate": "nameplate_Polus_Planet"
+    }
   },
   {
     "id": 3,
     "name": "Trusishka",
     "ru": "Трусишка",
-    "color": 14
+    "color": 14,
+    "outfit": {
+      "hat": "hat_pk04_BirdNest",
+      "visor": "visor_mira_mask_white"
+    }
   },
   {
     "id": 4,
     "name": "Odin",
     "ru": "Один",
-    "color": 7
+    "color": 7,
+    "outfit": {
+      "hat": "hat_pk04_Vagabond",
+      "skin": "skin_JacketPurpleskin"
+    }
   },
   {
     "id": 5,
     "name": "Novichok",
     "ru": "Новичок",
-    "color": 11
+    "color": 11,
+    "outfit": {
+      "hat": "hat_pk01_BaseballCap",
+      "visor": "visor_pk01_DumStickerVisor"
+    }
   },
   {
     "id": 6,
     "name": "Holmsik",
     "ru": "Холмсик",
-    "color": 9
+    "color": 9,
+    "outfit": {
+      "hat": "hat_pk04_HunterCap",
+      "skin": "skin_Police"
+    }
   },
   {
     "id": 7,
     "name": "Hitrets",
     "ru": "Хитрец",
-    "color": 3
+    "color": 3,
+    "outfit": {
+      "hat": "hat_pk05_Fedora",
+      "skin": "skin_BusinessFem-Tanskin"
+    }
   },
   {
     "id": 8,
     "name": "Kapitan",
     "ru": "Капитан",
-    "color": 1
+    "color": 1,
+    "outfit": {
+      "hat": "hat_captain",
+      "skin": "skin_Capt"
+    }
   },
   {
     "id": 9,
     "name": "Haos",
     "ru": "Хаос",
-    "color": 0
+    "color": 0,
+    "outfit": {
+      "hat": "hat_pk04_CCC",
+      "skin": "skin_Mech",
+      "visor": "visor_pk01_AngeryVisor"
+    }
   },
   {
     "id": 10,
     "name": "Vorchun",
     "ru": "Ворчун",
-    "color": 2
+    "color": 2,
+    "outfit": {
+      "hat": "hat_russian",
+      "skin": "skin_Wall"
+    }
   }
 ]
