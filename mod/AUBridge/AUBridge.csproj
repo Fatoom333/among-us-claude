@@ -20,6 +20,7 @@
     <Reference Include="Il2CppInterop.Common"><HintPath>$(RefDir)core\Il2CppInterop.Common.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Reactor"><HintPath>$(RefDir)Reactor.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>$(RefDir)interop\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Hazel"><HintPath>$(RefDir)interop/Hazel.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Il2Cppmscorlib"><HintPath>$(RefDir)interop\Il2Cppmscorlib.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine"><HintPath>$(RefDir)interop\UnityEngine.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.CoreModule"><HintPath>$(RefDir)interop\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>

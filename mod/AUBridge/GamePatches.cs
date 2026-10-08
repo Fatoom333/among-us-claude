@@ -44,6 +44,12 @@ static class PVotingComplete
         Hook.Safe("votingComplete", () => Game.OnVotingComplete(states, exiled, tie));
 }
 
+[HarmonyPatch(typeof(MeetingHud), nameof(MeetingHud.CastVote))]
+static class PCastVote
+{
+    [HarmonyPostfix] static void Post(byte srcPlayerId) => Hook.Safe("castVote", () => Game.OnVoteCast(srcPlayerId));
+}
+
 [HarmonyPatch(typeof(Vent), nameof(Vent.EnterVent))]
 static class PVentEnter
 {

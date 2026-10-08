@@ -111,3 +111,46 @@ foreach (var kv in ShipStatus.Instance.FastRooms) if (kv.Value.roomArea.OverlapP
 - События: `arrived {room,pos}` (или `{reason:last_seen}` у follow), `stuck`, `lost_sight {name}`, `task_faked`; `task_done`/`tasks_all_done` дают наблюдатель.
 - `state.game.busy`: `idle|moving|task|moving_to_task|following|wandering`; `state.game.body`: action, autopilot, nav, navStatus, stuck, desired, applied, vel, pathLeft, goal, task.
 - Не сделано: закрытые двери саботажа в сетке (только анти-застревание), рефлексы, `report/kill/vote/chat/vent/sabotage`.
+
+## Шаг Actions (v0.4.0) — что проверено вживую на 5 копиях
+Тесты: `scripts/test_actions.py` (фазы `setup bad vent sab sab2 react kill round2`), вспомогательные `scripts/evdump.py`, `scripts/ph.py`. Для сценария «убийство + два собрания» нужно 5 мест (импостор + 4 экипажа, `impostors=1`).
+
+### Действия `act`
+- Мгновенные (занятие тела НЕ меняют, ответ `ok:true` значит «команда отдана игре», итог смотреть по событиям): `kill`, `report`, `vote`, `chat`, `vent`, `sabotage`.
+- Занятия (заменяют текущее): `call_meeting`, `fix` (плюс прежние `stay/move_to/follow/wander/do_task`).
+- `kill {target}`: только импостор, живой, не в вентиле, не в собрании; кулдаун ≤ 0.05; цель в честном списке `visible`, жива, не напарник, `distance ≤ GetKillDistance()` (state: `me.killRange`, при KillDistance=0 это 1.0). Дальше `PlayerControl.CmdCheckMurder` (проверки хоста остаются). Слишком далеко даёт `ok:false "target out of kill range (1,7 > 1,0)"`, это нормально: сначала `follow {distance:1.0}`.
+- `report {target?}`: ближайшее видимое тело в `MaxReportDistance`, `CmdReportDeadBody(GameData.GetPlayerById(parentId))`.
+- `call_meeting`: идёт к `ShipStatus.EmergencyButton`, на `CanUse` (или через 1 с после прибытия) жмёт `CmdReportDeadBody(null)`, событие `button_pressed`.
+- `vote {target: имя|"skip"}`: только `MeetingHud.state == NotVoted`; во время обсуждения `"voting is not open yet"`, второй голос и мёртвые `ok:false`. `CmdCastVote(me.PlayerId, id)`; skip = `PlayerVoteArea.SkippedVote`.
+- `chat {text}`: ≤ 100 символов, без управляющих, не чаще 1/с, только в собрании (после события `meeting_started`) или в лобби. `PlayerControl.RpcSendChat`. Кириллица доходит до всех (событие `chat` с тем же текстом на 5 из 5 копий, включая мёртвого).
+- `vent {enter:true|false, to:"left|right|center|<id>"}`: `Vent.Use()` (вход при `CanUse`, выход), `to` = `TryMoveToVent`. В `state.game.vents` импостор видит вентиляции в свете (`id,pos,room,distance`) и, сидя внутри, соседей (`current,left,right,center`). Вживую: вход в вентиль Electrical, переход влево в Security, выход.
+- `sabotage {type: lights|reactor|o2|comms}`: `RpcUpdateSystem(Sabotage, (byte)SystemTypes.X)`; отказ при активном саботаже или кулдауне.
+- `fix {type, id?}`: экипаж (не импостор, не мёртвый). Берёт консоли у собственной задачи-саботажа (`task.ValidConsole`), идёт, стоит 2-3 с, потом:
+  - `lights`: для каждого различающегося бита `ExpectedSwitches ^ ActualSwitches` шлёт `RpcUpdateSystem(Electrical, i)` с паузой 0.4 с (около 9 с всего);
+  - `comms`: `RpcUpdateSystem(Comms, 0)` сработало с первой попытки (запасные коды 16 и 17 не понадобились);
+  - `o2`: по очереди обе консоли, `LifeSupp, AddUserOp | consoleId` (16.7 с одним ботом);
+  - `reactor`: нужны двое одновременно, `fix {type:"reactor", id:0}` и `id:1`: `Reactor, AddUserOp | consoleId`, держат консоль до конца саботажа (12.3 с).
+  Событие `fix_finished {kind, ok}`.
+- Поле `type` в данных события переименовано в `kind` (иначе затирало тип события): `sabotage {kind}`, `sabotage_fixed {kind}`. У `reflex_fired` поле `reflex`.
+
+### Рефлексы `{"cmd":"reflex","set":[...]}`
+Полностью заменяют список, `[]` снимает; в `state.game.reflexes` активные. Проверка идёт 10 раз в секунду (`Body.ReflexUpdate`). Неверный тип, цель, диапазон, `kill_if_alone`/`self_report` не импостору дают `ok:false`.
+- `kill_if_alone {target:имя|any, maxWitnesses:0}`: цель в радиусе убийства, кулдаун 0, число ДРУГИХ видимых живых (кроме напарника) ≤ maxWitnesses. Вживую: пока свидетель в поле зрения, за 10 с не убил; как только свидетель ушёл, убил за ~1 с (`kill_done`, `reflex_fired`).
+- `report_on_body`: тело в радиусе репорта: репортит, иначе временно берёт управление (`busy: reporting`), идёт, репортит.
+- `flee_on_kill_seen`: по `saw_kill`; бежит к ближайшему из видимых (если их ≥ 2, кроме убийцы и жертвы) или в Cafeteria.
+- `stick_to_group {min}`: видимых живых меньше `min` дольше 1 с: идёт к ближайшему видимому, иначе в Cafeteria (`busy: grouping`). Вернулся к группе: старое занятие восстанавливается.
+- `avoid {target, distance}`: цель ближе `distance`: отходит в точку подальше по прямой видимости (`busy: avoiding`), отпускает при `distance + 1.5`.
+- `self_report`: через 0.3 с после своего убийства репортит тело жертвы.
+Приоритеты (одновременно ведёт тело только один): flee 4 > report 3 > avoid 2 > group 1. Рефлекс «одалживает» тело: прежнее занятие сохраняется (`_lastArgs`) и после рефлекса запускается заново; явная команда `act` отменяет рефлекс-занятие.
+
+### Собрание
+- `meeting_started` теперь отправляется, когда появился `MeetingHud` (раньше хук `StartMeeting` срабатывал за 2-3 секунды до экрана, тогда `chat` и `vote` отвечали «no meeting»). Вызвавший и тело берутся из хука.
+- Экран «Итоги голосования» ждёт нажатия «Далее» хостом (иначе собрание висит вечно). Хост-копия сама зовёт `MeetingHud.HandleProceed()` через 4 с после `Results`. После этого `meeting_ended {ejected, tie, wasImpostor}` и игра идёт дальше (30 с на голосование, 5 с на обсуждение, по таймеру пустое голосование считается как «пропуск»).
+- Если собрание закончилось концом игры (последнее голосование), `meeting_ended` отправляется перед `game_ended`.
+- `vote_cast {from}` вживую НЕ приходит (игра не показывает чужие голоса до результата); голоса видны в `state.game.meeting.votes` после результата.
+- Поддержка `nav {vents:true}` (отладка): список всех вентиляций с позициями.
+
+### Не проверено вживую
+- Видимость русского текста в окне чата игры глазами (по событиям текст целый; скриншота чата нет).
+- Флаг `Windows Firewall` для `among us.exe` в `D:\amongus-mod` висит окном на ПК, ему не отвечали (запрет на правку брандмауэра), игре это не мешало.
+- Закрытые двери (саботаж дверей) в сетке по-прежнему не учитываются; 10 копий и 2 импостора; `lost_player` при саботаже света не отдельно.

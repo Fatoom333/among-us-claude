@@ -132,6 +132,13 @@ public static class Bridge
                 case "wait_event": return WaitEvent(root);
                 case "act": { var a = ActArgs.Parse(root); return Runner.Invoke(() => Body.Act(a)); }
                 case "autopilot": { var a = new ActArgs { Do = "autopilot" }; if (root.TryGetProperty("on", out var ov)) { if (ov.ValueKind != JsonValueKind.True && ov.ValueKind != JsonValueKind.False) return Err("bad on (bool)"); a.On = ov.GetBoolean(); } return Runner.Invoke(() => Body.Autopilot(a)); }
+                case "reflex":
+                    {
+                        if (!root.TryGetProperty("set", out var rs)) return Err("missing 'set'");
+                        var defs = Body.ParseReflexes(rs);
+                        Runner.Invoke(() => Body.SetReflexes(defs));
+                        break;
+                    }
                 case "nav": { var cp = root.Clone(); return Runner.Invoke(() => Body.NavCmd(cp)); }
                 default: return Err("unknown cmd");
             }

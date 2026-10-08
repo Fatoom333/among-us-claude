@@ -15,6 +15,8 @@ public sealed class ActArgs
     public bool Next;
     public float? Duration;
     public bool? On;
+    public bool? Enter;
+    public string To;
 
     static string S(JsonElement r, string k) => r.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
@@ -50,6 +52,18 @@ public sealed class ActArgs
             if (du.ValueKind != JsonValueKind.Number || !du.TryGetSingle(out var dd) || float.IsNaN(dd) || dd < 0f || dd > 30f) throw new BridgeError("bad durationSec (0..30)");
             a.Duration = dd;
         }
+        if (r.TryGetProperty("enter", out var en) && en.ValueKind != JsonValueKind.Null)
+        {
+            if (en.ValueKind != JsonValueKind.True && en.ValueKind != JsonValueKind.False) throw new BridgeError("bad enter (bool)");
+            a.Enter = en.GetBoolean();
+        }
+        if (r.TryGetProperty("to", out var to) && to.ValueKind != JsonValueKind.Null)
+        {
+            if (to.ValueKind == JsonValueKind.String) a.To = to.GetString();
+            else if (to.ValueKind == JsonValueKind.Number && to.TryGetInt32(out var tov)) a.To = tov.ToString();
+            else throw new BridgeError("bad to (string or number)");
+            if (a.To.Length > 20) throw new BridgeError("bad to");
+        }
         if (r.TryGetProperty("on", out var o) && o.ValueKind != JsonValueKind.Null)
         {
             if (o.ValueKind != JsonValueKind.True && o.ValueKind != JsonValueKind.False) throw new BridgeError("bad on (bool)");
@@ -61,7 +75,7 @@ public sealed class ActArgs
 
 // The bot's "body": one current occupation (stay / move_to / follow / wander / do_task) + optional autopilot.
 // Everything runs on the main thread. Movement is injected as joystick input (no teleport, no noclip).
-public static class Body
+public static partial class Body
 {
     public static Vector2 Desired;
     public static int Applied; public static double LastVel;
@@ -95,9 +109,10 @@ public static class Body
         _faked.Clear(); Stop();
         try { Nav.Build(false); } catch (Exception e) { Nav.Status = "build error: " + e.Message; Plugin.Logger.LogError("[AUB] nav build: " + e); }
     }
-    public static void OnMatchReset() { Stop(); _auto = false; Nav.Ready = false; Active = false; Desired = Vector2.zero; }
+    public static void OnMatchReset() { Stop(); ClearOverride(); _reflexes = new List<ReflexDef>(); _auto = false; Nav.Ready = false; Active = false; Desired = Vector2.zero; }
 
-    static void Stop()
+    static void Stop() { ReleaseFix(); StopCore(); }
+    static void StopCore()
     {
         _kind = null; _path = null; _hasGoal = false; _blocked.Clear(); _stuckN = 0; _task = null; _fLost = false;
         Desired = Vector2.zero; Active = false;
@@ -112,6 +127,12 @@ public static class Body
             case "follow": return "following";
             case "wander": return "wandering";
             case "do_task": return _tPhase == 1 ? "task" : "moving_to_task";
+            case "call_meeting": return "moving_to_button";
+            case "fix": return _fxPhase == 0 ? "moving_to_fix" : "fixing";
+            case "r_report": return "reporting";
+            case "r_flee": return "fleeing";
+            case "r_group": return "grouping";
+            case "r_avoid": return "avoiding";
             default: return "idle";
         }
     }
@@ -195,9 +216,19 @@ public static class Body
                     _auto = false; Stop(); StartTask(t, a.Duration); Active = true;
                     break;
                 }
+            case "call_meeting": NeedGame(); StartCallMeeting(); break;
+            case "fix": NeedGame(); StartFix(a); break;
+            case "kill": return Done(a, ActKill(a));
+            case "report": return Done(a, ActReport(a));
+            case "vote": return Done(a, ActVote(a));
+            case "chat": return Done(a, ActChat(a));
+            case "vent": return Done(a, ActVent(a));
+            case "sabotage": return Done(a, ActSabotage(a));
             default:
-                throw new BridgeError("action not supported yet: " + a.Do);
+                throw new BridgeError("unknown action: " + a.Do);
         }
+        if (a.Do == "stay" || a.Do == "idle") _lastArgs = StayArgs; else _lastArgs = a;
+        ClearOverride();
         Plugin.Logger.LogInfo("[AUB] act " + a.Do);
         return new Dictionary<string, object> { ["ok"] = true, ["accepted"] = a.Do };
     }
@@ -205,6 +236,7 @@ public static class Body
     public static object Autopilot(ActArgs a)
     {
         bool on = a.On ?? true;
+        ClearOverride(); _lastArgs = null;
         if (on) { NeedGame(); if (_kind == null || _kind == "stay") { Stop(); } _auto = true; Active = true; }
         else { _auto = false; Stop(); }
         Plugin.Logger.LogInfo("[AUB] autopilot " + on);
@@ -246,7 +278,14 @@ public static class Body
                 probe.Add($"{h.gameObject.name} layer={h.gameObject.layer} trig={h.isTrigger} type={h.GetIl2CppType().Name} bounds=({bd.min.x:0.0},{bd.min.y:0.0})-({bd.max.x:0.0},{bd.max.y:0.0})");
             }
         }
-        return new Dictionary<string, object> { ["ok"] = true, ["probe"] = probe, ["nav"] = Nav.Ready, ["status"] = Nav.Status, ["mask"] = Nav.MaskName, ["clearance"] = Nav.Clearance, ["dump"] = dumped };
+        List<object> vl = null;
+        if (r.TryGetProperty("vents", out var vv) && vv.ValueKind == JsonValueKind.True && Game.ShipUp)
+        {
+            vl = new List<object>();
+            var av = ShipStatus.Instance.AllVents;
+            for (int i = 0; av != null && i < av.Length; i++) if (av[i] != null) { Vector2 vp = av[i].transform.position; vl.Add(FormattableString.Invariant($"id={av[i].Id} pos=({vp.x:0.00},{vp.y:0.00}) room={Game.RoomAt(vp)}")); }
+        }
+        return new Dictionary<string, object> { ["ok"] = true, ["vents"] = vl, ["probe"] = probe, ["nav"] = Nav.Ready, ["status"] = Nav.Status, ["mask"] = Nav.MaskName, ["clearance"] = Nav.Clearance, ["dump"] = dumped };
     }
 
     // ---------------- tasks ----------------
@@ -311,16 +350,19 @@ public static class Body
     public static void Update(float now)
     {
         Desired = Vector2.zero;
-        if (!Active && !_auto) return;
         var me = Me;
+        if (me != null && Game.ShipUp && Game.Started && Nav.Ready && !Game.InMeetingOrExile) { try { ReflexUpdate(me, now); } catch (Exception e) { Plugin.Logger.LogWarning("[AUB] reflex: " + e.Message); } }
+        if (!Active && !_auto) return;
         if (me == null || !Game.ShipUp || !Game.Started || !Nav.Ready) { return; }
         if (Game.InMeetingOrExile)
         {
-            if (_kind != null && _kind != "stay") { _kind = null; _path = null; _task = null; } // a meeting cancels the occupation
+            if (_kind != null && _kind != "stay") { _kind = null; _path = null; _task = null; ReleaseFix(); } // a meeting cancels the occupation
+            ClearOverride();
             return;
         }
         if (!me.CanMove) return;
         var pos = me.GetTruePosition();
+        if (_ovr != null && (_kind == null || !_kind.StartsWith("r_"))) ClearOverride();
         if (now - _blockedAt > 8f && _blocked.Count > 0) _blocked.Clear();
 
         if (_kind == null && _auto) AutoPick(me, pos, now);
@@ -340,6 +382,9 @@ public static class Body
             case "follow": UpdateFollow(me, pos, now); break;
             case "wander": UpdateWander(pos, now); break;
             case "do_task": UpdateTask(me, pos, now); break;
+            case "call_meeting": UpdateCallMeeting(me, pos, now); break;
+            case "fix": UpdateFix(me, pos, now); break;
+            case "r_report": case "r_flee": case "r_group": case "r_avoid": OvrUpdate(me, pos, now); break;
         }
     }
 
