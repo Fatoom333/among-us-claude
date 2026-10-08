@@ -1,6 +1,8 @@
 # Launches N Among Us copies with AUBridge: copy 1 on host (hosts lobby), 2..N in Sandboxie boxes AU2..AUN (join).
+# Default: copy 1 first, wait until its bridge reports stage=lobby (max -LobbyTimeout s), then the rest in batches of -Batch with -BatchDelay s between batches.
+# -Sequential: old mode, one copy after another with -Delay s pause. Stage timings go to D:\AmongUs-tools\logs\launch-<time>.log.
 # -HumanSeat $true (default): copy 1 (the human, Tarti) gets a fullscreen-sized 1920x1080 borderless window; $false: copy 1 is small like the others.
-param([int]$N = 10, [switch]$NewTokens, [int]$Delay = 15, [bool]$HumanSeat = $true)
+param([int]$N = 10, [switch]$NewTokens, [int]$Delay = 15, [bool]$HumanSeat = $true, [switch]$Sequential, [int]$Batch = 3, [int]$BatchDelay = 5, [int]$LobbyTimeout = 120)
 $ErrorActionPreference = 'Stop'
 $tools = 'D:\AmongUs-tools'
 $tokDir = "$tools\bridge\tokens"; $runDir = "$tools\bridge\run"; $logDir = "$tools\logs"
@@ -12,7 +14,47 @@ foreach ($d in $tokDir, $runDir) {
     if (Get-ChildItem $d -File) { icacls "$d\*" /reset /Q | Out-Null }
 }
 
-& "$tools\stop-all.ps1"
+$stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+$launchLog = "$logDir\launch-$stamp.log"
+$t0 = Get-Date
+function Log([string]$m) { Add-Content -Path $launchLog -Value ("{0:HH:mm:ss} (+{1,5:N1}s) {2}" -f (Get-Date), ((Get-Date) - $t0).TotalSeconds, $m) -Encoding UTF8 }
+Log "start N=$N sequential=$($Sequential.IsPresent) batch=$Batch batchDelay=$BatchDelay"
+
+# keep the previous mod logs (evidence) before the new run overwrites them
+$prev = "$logDir\prev"; New-Item -ItemType Directory -Force $prev | Out-Null
+$srcLogs = @(@{ n = 1; p = 'D:\AmongUs-mod\BepInEx\LogOutput.log' })
+if ($N -ge 2) { foreach ($i in 2..$N) { $srcLogs += @{ n = $i; p = "C:\Sandbox\$($env:USERNAME)\AU$i\drive\D\AmongUs-mod\BepInEx\LogOutput.log" } } }
+foreach ($l in $srcLogs) { if (Test-Path $l.p) { try { Copy-Item $l.p "$prev\LogOutput-au$($l.n)-$stamp.log" -ErrorAction Stop } catch { Log "prev log au$($l.n): $($_.Exception.Message)" } } }
+Log "previous logs saved"
+
+& "$tools\stop-all.ps1" | ForEach-Object { Log "stop-all: $_" }
+Log "stopped old copies"
+
+# Asks the bridge of seat 1 for state until stage == lobby. The token is read from the file and never printed or logged.
+function Wait-Lobby([int]$TimeoutSec) {
+    $tok = ([IO.File]::ReadAllText("$tokDir\p1.txt")).Trim()
+    $end = (Get-Date).AddSeconds($TimeoutSec)
+    $last = ''
+    while ((Get-Date) -lt $end) {
+        $c = New-Object Net.Sockets.TcpClient
+        try {
+            $iar = $c.BeginConnect('127.0.0.1', 47001, $null, $null)
+            if ($iar.AsyncWaitHandle.WaitOne(2000) -and $c.Connected) {
+                $c.EndConnect($iar)
+                $ns = $c.GetStream(); $ns.ReadTimeout = 3000; $ns.WriteTimeout = 3000
+                $req = [Text.Encoding]::UTF8.GetBytes((@{ cmd = 'state'; token = $tok } | ConvertTo-Json -Compress) + "`n")
+                $ns.Write($req, 0, $req.Length)
+                $sb = New-Object Text.StringBuilder; $buf = New-Object byte[] 65536
+                while (-not $sb.ToString().EndsWith("`n")) { $n = $ns.Read($buf, 0, $buf.Length); if ($n -le 0) { break }; [void]$sb.Append([Text.Encoding]::UTF8.GetString($buf, 0, $n)) }
+                $r = $sb.ToString() | ConvertFrom-Json
+                if ($r.stage -ne $last) { $last = $r.stage; Log "host stage=$last" }
+                if ($r.stage -eq 'lobby') { return $true }
+            }
+        } catch { } finally { $c.Close() }
+        Start-Sleep -Milliseconds 1000
+    }
+    return $false
+}
 
 # roster: optional [{"id":2,"name":"..","color":3}]
 $roster = @{}
@@ -25,7 +67,7 @@ $game = '963137e4c29d4c79a81323b8fab03a40'
 $leg = "$tools\legendary\legendary.exe"
 $sbx = 'D:\Program Files\Sandboxie\Start.exe'
 
-foreach ($id in 1..$N) {
+function Start-Copy([int]$id) {
     $tf = "$tokDir\p$id.txt"
     if ($NewTokens -or -not (Test-Path $tf)) { [IO.File]::WriteAllText($tf, (New-Token)) }
     $tok = ([IO.File]::ReadAllText($tf)).Trim()
@@ -55,5 +97,21 @@ foreach ($id in 1..$N) {
     if ($id -eq 1) { Start-Process -FilePath $cmd -WindowStyle Hidden }
     else { Start-Process -FilePath $sbx -ArgumentList "/box:AU$id", $cmd }
     Write-Output "started copy $id ($mode, $name)"
-    if ($id -lt $N) { Start-Sleep $Delay }
+    Log "started copy $id ($mode)"
 }
+
+if ($Sequential) {
+    foreach ($id in 1..$N) { Start-Copy $id; if ($id -lt $N) { Start-Sleep $Delay } }
+} else {
+    Start-Copy 1
+    $ok = Wait-Lobby $LobbyTimeout
+    if ($ok) { Log "lobby created" } else { Log "WARNING: lobby not confirmed in $LobbyTimeout s, launching the rest anyway" }
+    $rest = @(); if ($N -ge 2) { $rest = @(2..$N) }
+    for ($k = 0; $k -lt $rest.Count; $k += $Batch) {
+        $grp = $rest[$k..([Math]::Min($k + $Batch, $rest.Count) - 1)]
+        Log ("batch: " + ($grp -join ','))
+        foreach ($id in $grp) { Start-Copy $id }
+        if ($k + $Batch -lt $rest.Count) { Start-Sleep $BatchDelay }
+    }
+}
+Log "all launched"

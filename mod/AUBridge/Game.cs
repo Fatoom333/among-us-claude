@@ -633,6 +633,29 @@ public static class Game
         _closeLogAt = Events.Now + 3f;
     }
 
+    // Orchestrator command: finish the match early. Every copy emits game_ended(winner none, reason aborted) and goes to phase "ended";
+    // the host also ends the game for everybody (CrewmateDisconnect: plain return to lobby, no role-specific screens).
+    public static object Abort()
+    {
+        bool host = Client != null && Client.AmHost;
+        bool inGame = Client != null && Client.GameState == InnerNetClient.GameStates.Started;
+        if (!_ended)
+        {
+            if (_inMeeting) EmitMeetingEnded();
+            Events.Add("game_ended", "winner", "none", "reason", "aborted");
+            _ended = true; _inMeeting = false;
+            _closeLogAt = Events.Now + 3f;
+        }
+        string how = "event";
+        if (host && inGame && GameManager.Instance != null)
+        {
+            try { GameManager.Instance.RpcEndGame(GameOverReason.CrewmateDisconnect, false); how = "rpc_end_game"; }
+            catch (Exception e) { Warn("abort RpcEndGame: " + e.Message); how = "event (rpc failed)"; }
+        }
+        Plugin.Logger.LogInfo("[AUB] abort: " + how);
+        return how;
+    }
+
     // ---------------- host commands ----------------
     static NormalGameOptionsV10 HostOptions()
     {
