@@ -32,11 +32,11 @@ const CHRONICLE = {
   required: ['summaryPath'],
 }
 
-// args: {gameId, playerPrompt, players:[{seat,name,key,personality,memory}], setup, impostors, autopilotSeats}
-const { gameId, playerPrompt, players, setup, impostors, autopilotSeats } = args
+// args: {gameId, players:[{seat,name,key}], setup, impostors, autopilotSeats}; briefs (rules+personality+memory)
+// are already on the PC — game-args.mjs put them there, players fetch their own with au_brief.
+const { gameId, players, setup, impostors, autopilotSeats } = args
 // everything below that reaches a command line is validated: plain integers and a plain game id only
 if (!/^[A-Za-z0-9-]{1,40}$/.test(String(gameId))) throw new Error('bad gameId')
-if (typeof playerPrompt !== 'string' || !playerPrompt.includes('{{KEY}}')) throw new Error('bad playerPrompt')
 const IMP = Number.isInteger(impostors) && impostors >= 1 && impostors <= 3 ? impostors : 2
 const AUTO = (autopilotSeats || []).filter(x => Number.isInteger(x) && x >= 1 && x <= 10)
 for (const p of players) {
@@ -63,18 +63,15 @@ if (setup) {
   if (!s || !s.ok) return { aborted: true, setup: s }
 }
 
-function fill(p) {
-  return playerPrompt
-    .split('{{NAME}}').join(p.name)
-    .split('{{PLAYER}}').join(String(p.seat))
-    .split('{{KEY}}').join(p.key)
-    .split('{{PERSONALITY}}').join(p.personality || '')
-    .split('{{MEMORY}}').join(p.memory || '(памяти нет)')
+function launch(p) {
+  return [
+    'Ты игрок Among Us: имя ' + p.name + ', место player=' + p.seat + ', ключ места key="' + p.key + '" (секрет: не пиши его в чат игры).',
+    'Первым делом вызови au_brief(player=' + p.seat + ', key=...) — там правила, твой характер и память — и дальше играй строго по нему. Игра уже идёт, разрешений не жди.',
+  ].join('\n')
 }
-
 phase('Play')
 const results = (await parallel(players.map(p => () =>
-  agent(fill(p), {
+  agent(launch(p), {
     label: p.name + ' (место ' + p.seat + ')',
     phase: 'Play',
     agentType: 'au-player',

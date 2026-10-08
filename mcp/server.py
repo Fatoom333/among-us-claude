@@ -28,6 +28,12 @@ async def _run(coro):
 
 
 @mcp.tool()
+async def au_brief(player: Player, key: Key) -> dict:
+    """Твой бриф на партию: правила, характер, память. Вызови первым делом."""
+    return await _run(core.op_brief(player, key))
+
+
+@mcp.tool()
 async def au_state(player: Player, key: Key) -> dict:
     """Текущее состояние персонажа: что он видит, задачи, фаза игры."""
     return await _run(core.op_state(player, key))
