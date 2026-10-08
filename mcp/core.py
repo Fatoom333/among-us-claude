@@ -16,16 +16,16 @@ SEATS_FILE = ROOT / "bridge" / "seats.json"
 TOKENS_DIR = ROOT / "bridge" / "tokens"
 LOG_DIR = ROOT / "mcp" / "logs"
 BRIEFS_DIR = ROOT / "briefs"
-MAX_BRIEF = 40 * 1024        # символов; должно влезать в MAX_OUT вместе с обёрткой
+MAX_BRIEF = 64 * 1024        # символов; должно влезать в MAX_OUT вместе с обёрткой
 HOST = "127.0.0.1"
 PORT_BASE = 47000
 
 MAX_LINE = 256 * 1024        # максимум строки ответа моста
-MAX_OUT = 48 * 1024          # максимум ответа агенту (символов)
+MAX_OUT = 72 * 1024          # максимум ответа агенту (символов)
 MAX_ARGS_BYTES = 2048
 MAX_REQ_BYTES = 6 * 1024     # у моста MaxLine = 8 КБ на запрос (Bridge.cs)
-MAX_CHAT = 40             # human chat style: short pieces; a longer thought goes as several messages
-MAX_CHAT_WORDS = 6
+MAX_CHAT = 32             # human chat style: short pieces; a longer thought goes as several messages
+MAX_CHAT_WORDS = 5
 CMD_TIMEOUT = 15.0
 CONNECT_TIMEOUT = 3.0
 IDLE_CLOSE = 90.0
@@ -185,7 +185,7 @@ def check_act(do, args) -> dict:
         words = len(text.split())
         if len(text) > MAX_CHAT or words > MAX_CHAT_WORDS:
             raise AuError(f"too long ({words} words, {len(text)} chars; max {MAX_CHAT_WORDS} words / {MAX_CHAT} chars): "
-                          "real players write 2-5 words, one fact per message, e.g. 'red came from body'. "
+                          "real players write 2-3 words, one fact per message, e.g. 'red came from body'. "
                           "Send only the most important fact now; add more later only if someone asks")
     return args
 
