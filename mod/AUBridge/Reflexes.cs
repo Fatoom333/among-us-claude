@@ -12,6 +12,7 @@ public sealed class ReflexDef
     public float Distance = 4f;
     public int Min = 2;
     public float Eagerness = 0.6f; // fix_sabotage: 0 = reluctant (~20 s base delay), 1 = goes at once
+    public float Caution = 0.5f;   // kill_if_alone: how long a witness who just left view still counts (2 + 6*caution s): people fake leaving to catch you
 }
 
 // Reflexes: checked ~10 times per second inside the mod; the agent only switches them on.
@@ -27,6 +28,9 @@ public static partial class Body
     static float _rNext, _rKillAt, _belowSince;
     static float _fxRetryAt, _fxSeenAt; static string _fxSeenType;
     static float _selfReportAt; static byte _selfReportVictim;
+    static readonly Dictionary<byte, float> _seenAt = new(); // kill_if_alone: when each other player was last in view
+    static float _quietJitter = 1f, _quietJitterAt;
+    static readonly System.Random _rng = new();
 
     // ---------------- parse / set ----------------
     public static List<ReflexDef> ParseReflexes(JsonElement set)
@@ -65,6 +69,11 @@ public static partial class Body
             {
                 if (eg.ValueKind != JsonValueKind.Number || !eg.TryGetSingle(out var egv) || float.IsNaN(egv) || egv < 0f || egv > 1f) throw new BridgeError("bad eagerness (0..1)");
                 d.Eagerness = egv;
+            }
+            if (e.TryGetProperty("caution", out var ca) && ca.ValueKind != JsonValueKind.Null)
+            {
+                if (ca.ValueKind != JsonValueKind.Number || !ca.TryGetSingle(out var cav) || float.IsNaN(cav) || cav < 0f || cav > 1f) throw new BridgeError("bad caution (0..1)");
+                d.Caution = cav;
             }
             // legacy 'max' for fix_sabotage is ignored on purpose
             if (d.Type == "avoid" && string.IsNullOrEmpty(d.Target)) throw new BridgeError("avoid needs target");
@@ -120,7 +129,7 @@ public static partial class Body
         foreach (var d in _reflexes)
         {
             var o = new Dictionary<string, object> { ["type"] = d.Type };
-            if (d.Type == "kill_if_alone") { o["target"] = d.Target ?? "any"; o["maxWitnesses"] = d.MaxWitnesses; }
+            if (d.Type == "kill_if_alone") { o["target"] = d.Target ?? "any"; o["maxWitnesses"] = d.MaxWitnesses; o["caution"] = d.Caution; }
             if (d.Type == "avoid") { o["target"] = d.Target; o["distance"] = d.Distance; }
             if (d.Type == "stick_to_group") o["min"] = d.Min;
             if (d.Type == "fix_sabotage") o["eagerness"] = d.Eagerness;
@@ -239,6 +248,7 @@ public static partial class Body
 
         // kill_if_alone
         var kd = Find("kill_if_alone");
+        if (imp) foreach (var v in vis) _seenAt[v.Id] = now;
         if (kd != null && imp && !me.inVent && me.killTimer <= 0.05f && now >= _rKillAt)
         {
             float range = KillRange();
@@ -250,6 +260,26 @@ public static partial class Body
                 int w = 0;
                 foreach (var o in vis) if (o.Id != c.Id && !string.Equals(o.Name, partner, StringComparison.OrdinalIgnoreCase)) w++;
                 if (w <= kd.MaxWitnesses && (pick == null || c.Dist < pick.Dist)) { pick = c; pw = w; }
+            }
+            if (pick != null)
+            {
+                // Someone who stepped out of view a moment ago may be faking it and come right back:
+                // count them as a witness for 2 + 6*caution seconds (x0.8..1.4, re-rolled every 20 s so it is not clockwork).
+                if (now >= _quietJitterAt) { _quietJitter = 0.8f + (float)_rng.NextDouble() * 0.6f; _quietJitterAt = now + 20f; }
+                float quiet = (2f + 6f * kd.Caution) * _quietJitter;
+                int recent = 0;
+                foreach (var kv in _seenAt)
+                {
+                    if (kv.Key == pick.Id || now - kv.Value > quiet) continue;
+                    bool inView = false, isPartner = false;
+                    foreach (var o in vis) if (o.Id == kv.Key) { inView = true; break; }
+                    if (inView) continue; // already counted above
+                    var pc = GameData.Instance != null ? GameData.Instance.GetPlayerById(kv.Key) : null;
+                    if (pc == null || pc.IsDead || pc.Disconnected) continue;
+                    if (partner != null && string.Equals(pc.PlayerName, partner, StringComparison.OrdinalIgnoreCase)) isPartner = true;
+                    if (!isPartner) recent++;
+                }
+                if (pw + recent > kd.MaxWitnesses) pick = null;
             }
             if (pick != null)
             {
