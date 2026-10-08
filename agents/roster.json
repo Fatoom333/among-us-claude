@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "Tarti",
+    "color": 4
+  },
+  {
+    "id": 2,
+    "name": "Filosof",
+    "color": 8
+  },
+  {
+    "id": 3,
+    "name": "Trusishka",
+    "color": 14
+  },
+  {
+    "id": 4,
+    "name": "Odin",
+    "color": 7
+  },
+  {
+    "id": 5,
+    "name": "Novichok",
+    "color": 11
+  },
+  {
+    "id": 6,
+    "name": "Holmsik",
+    "color": 9
+  },
+  {
+    "id": 7,
+    "name": "Hitrets",
+    "color": 3
+  },
+  {
+    "id": 8,
+    "name": "Kapitan",
+    "color": 1
+  },
+  {
+    "id": 9,
+    "name": "Haos",
+    "color": 0
+  },
+  {
+    "id": 10,
+    "name": "Vorchun",
+    "color": 2
+  }
+]
