@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -64,6 +64,7 @@ public class Runner : MonoBehaviour
     {
         ApplyIdentity(now);
         CloseAnnouncements(now);
+        HandleMergePopup(now);
         if (!InGame) DriveMenu(now);
     }
 
@@ -97,11 +98,67 @@ public class Runner : MonoBehaviour
         }
     }
 
+    static readonly HashSet<string> _warned = new();
+    static void WarnOnce(string m) { if (_warned.Add(m)) Plugin.Logger.LogWarning(m); }
+
+    // Never join anything outside the local network (official servers must stay untouched).
+    static bool IsLan(string a)
+    {
+        if (!System.Net.IPAddress.TryParse(a, out var ip) || ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork) return false;
+        var b = ip.GetAddressBytes();
+        return b[0] == 10 || b[0] == 127 || b[0] == 26 || (b[0] == 192 && b[1] == 168) || (b[0] == 172 && b[1] >= 16 && b[1] <= 31) || (b[0] == 169 && b[1] == 254);
+    }
+
+    static int _popupStep;
+    static void HandleMergePopup(float now)
+    {
+        var pop = Patches.PendingPopup;
+        if (pop == null) { _popupStep = 0; return; }
+        float age = now - Patches.PopupSeen;
+        try
+        {
+            if (_popupStep == 0 && age > 0.5f)
+            {
+                _popupStep = 1;
+                Plugin.Logger.LogInfo("[AUB] popup: pressing NotRightNowButton");
+                pop.NotRightNowButton.OnClick.Invoke();
+            }
+            else if (_popupStep == 1 && age > 8f && !LoginDone())
+            {
+                _popupStep = 2;
+                Plugin.Logger.LogInfo("[AUB] popup: fallback EOSManager.EndMergeGuestAccountFlow");
+                DestroyableSingleton<EOSManager>.Instance.EndMergeGuestAccountFlow();
+            }
+            else if (_popupStep == 2 && age > 16f && !LoginDone())
+            {
+                _popupStep = 3;
+                Plugin.Logger.LogInfo("[AUB] popup: fallback EOSManager.BeginFinalPartsOfLoginFlow");
+                DestroyableSingleton<EOSManager>.Instance.BeginFinalPartsOfLoginFlow();
+            }
+            else if (_popupStep >= 1 && age > 30f) { _popupStep = 4; Patches.PendingPopup = null; }
+        }
+        catch (Exception e) { Plugin.Logger.LogError("[AUB] popup handling: " + e.Message); _popupStep = Math.Max(_popupStep, 1); }
+    }
+
+    static bool LoginDone() { try { return DestroyableSingleton<EOSManager>.Instance.HasFinishedLoginFlow(); } catch { return false; } }
+
+    static bool HostServerUp()
+    {
+        try
+        {
+            foreach (var e in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners())
+                if (e.Port == 22023) return true;
+        }
+        catch { }
+        return false;
+    }
+
     static void DriveMenu(float now)
     {
         if ((_mode != "host" && _mode != "join") || now - _lastAct < 3f) return;
+        // MainMenuManager exists only on the main-menu scene; the local screen (host/join buttons) may be another scene.
         var mm = UnityEngine.Object.FindObjectOfType<MainMenuManager>();
-        if (mm == null || !mm.finishStartup) return;
+        if (mm != null && !mm.finishStartup) return;
 
         if (_mode == "host")
         {
@@ -120,8 +177,22 @@ public class Runner : MonoBehaviour
             foreach (var jb in UnityEngine.Object.FindObjectsOfType<JoinGameButton>())
             {
                 if (!jb.isActiveAndEnabled || string.IsNullOrEmpty(jb.netAddress)) continue;
+                if (!IsLan(jb.netAddress)) { WarnOnce("[AUB] join: skipping non-LAN address " + jb.netAddress); continue; }
                 Plugin.Logger.LogInfo("[AUB] join: JoinGameButton.OnClick " + jb.netAddress);
                 _lastAct = now + 10f;
+                jb.OnClick();
+                return;
+            }
+            // Only one process per PC can listen for LAN broadcasts (UDP 47777), so most joiners never see the list.
+            // If a local server is up, connect straight to loopback through a copy of the list-button prefab.
+            var gd = UnityEngine.Object.FindObjectOfType<GameDiscovery>();
+            if (gd != null && gd.ButtonPrefab != null && now - _searchStart > 8f && HostServerUp())
+            {
+                var jb = UnityEngine.Object.Instantiate(gd.ButtonPrefab);
+                jb.netAddress = "127.0.0.1";
+                jb.NetworkMode = NetworkModes.LocalGame;
+                Plugin.Logger.LogInfo("[AUB] join: direct JoinGameButton.OnClick 127.0.0.1");
+                _lastAct = now + 12f;
                 jb.OnClick();
                 return;
             }
@@ -130,9 +201,10 @@ public class Runner : MonoBehaviour
                 _searchWarned = true;
                 Plugin.Logger.LogWarning("[AUB] join: no local game found after 120s, still trying");
             }
+            if (gd != null) return; // already on the local screen, just wait
         }
         // Local screen is not open yet: press the main-menu "Local" button.
-        if (mm.playLocalButton != null)
+        if (mm != null && mm.playLocalButton != null)
         {
             Plugin.Logger.LogInfo("[AUB] opening local game screen");
             _lastAct = now;
@@ -200,3 +272,4 @@ public class Runner : MonoBehaviour
         };
     }
 }
+
