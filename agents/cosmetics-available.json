@@ -1,0 +1,755 @@
+{
+ "hats": [
+  {
+   "id": "hat_NoHat",
+   "name": "Нет"
+  },
+  {
+   "id": "hat_croissant",
+   "name": "Свежий круассан"
+  },
+  {
+   "id": "hat_IceCreamVanilla",
+   "name": "Два шарика (ваниль)"
+  },
+  {
+   "id": "hat_IceCreamUbe",
+   "name": "Два шарика (лиловое)"
+  },
+  {
+   "id": "hat_IceCreamMatcha",
+   "name": "Два шарика (матча)"
+  },
+  {
+   "id": "hat_IceCreamMint",
+   "name": "Два шарика (мята)"
+  },
+  {
+   "id": "hat_IceCreamNeo",
+   "name": "Два шарика (неаполитанское)"
+  },
+  {
+   "id": "hat_IceCreamStrawberry",
+   "name": "Два шарика (клубника)"
+  },
+  {
+   "id": "hat_sausage",
+   "name": "Завязочки"
+  },
+  {
+   "id": "hat_mira_bush",
+   "name": "Живая изгородь"
+  },
+  {
+   "id": "hat_mira_case",
+   "name": "Важные документы"
+  },
+  {
+   "id": "hat_mira_cloud",
+   "name": "Голова в облаках"
+  },
+  {
+   "id": "hat_mira_flower",
+   "name": "Тропический цветок"
+  },
+  {
+   "id": "hat_mira_flower_red",
+   "name": "Душистый цветок"
+  },
+  {
+   "id": "hat_mira_gem",
+   "name": "Уникальный образец"
+  },
+  {
+   "id": "hat_mira_leaf",
+   "name": "Лозы лезут"
+  },
+  {
+   "id": "hat_mira_milk",
+   "name": "Персиковый напиток"
+  },
+  {
+   "id": "hat_mira_headset_blue",
+   "name": "Первоклассная гарнитура (синий)"
+  },
+  {
+   "id": "hat_mira_headset_pink",
+   "name": "Первоклассная гарнитура (розовый)"
+  },
+  {
+   "id": "hat_mira_headset_yellow",
+   "name": "Первоклассная гарнитура (желтый)"
+  },
+  {
+   "id": "hat_WinterRed",
+   "name": "Холодненький (красный)"
+  },
+  {
+   "id": "hat_pkHW01_BatWings",
+   "name": "Сама ночь"
+  },
+  {
+   "id": "hat_pkHW01_CatEyes",
+   "name": "Шапка с ушками"
+  },
+  {
+   "id": "hat_pkHW01_Horns",
+   "name": "Бес-подобно"
+  },
+  {
+   "id": "hat_pkHW01_Machete",
+   "name": "Шапка-резка"
+  },
+  {
+   "id": "hat_pkHW01_Mohawk",
+   "name": "Хардкор"
+  },
+  {
+   "id": "hat_pkHW01_Pirate",
+   "name": "На корм рыбам"
+  },
+  {
+   "id": "hat_pkHW01_PlagueHat",
+   "name": "Чума"
+  },
+  {
+   "id": "hat_pkHW01_Pumpkin",
+   "name": "Тыковка"
+  },
+  {
+   "id": "hat_pkHW01_ScaryBag",
+   "name": "Маска чудовища"
+  },
+  {
+   "id": "hat_pkHW01_Witch",
+   "name": "Ведьма"
+  },
+  {
+   "id": "hat_pkHW01_Wolf",
+   "name": "Оборотень"
+  },
+  {
+   "id": "hat_pk06_Candycanes",
+   "name": "Карамельная трость"
+  },
+  {
+   "id": "hat_pk06_ElfHat",
+   "name": "Чувак с игрушками"
+  },
+  {
+   "id": "hat_pk06_Lights",
+   "name": "Ослепительно"
+  },
+  {
+   "id": "hat_pk06_Present",
+   "name": "Подарочек"
+  },
+  {
+   "id": "hat_pk06_Reindeer",
+   "name": "О, как лень"
+  },
+  {
+   "id": "hat_pk06_Santa",
+   "name": "Чувак с подарками"
+  },
+  {
+   "id": "hat_pk06_Snowman",
+   "name": "Отмороженный"
+  },
+  {
+   "id": "hat_pk06_tree",
+   "name": "Вечнозеленый"
+  },
+  {
+   "id": "hat_astronaut",
+   "name": "Космическая прогулка"
+  },
+  {
+   "id": "hat_brainslug",
+   "name": "Головослизень"
+  },
+  {
+   "id": "hat_bushhat",
+   "name": "Данди"
+  },
+  {
+   "id": "hat_Chocolate",
+   "name": "Шоколад. мороженое"
+  },
+  {
+   "id": "hat_chocolateVanillaStrawb",
+   "name": "Трагедия лета (клубника – ваниль)"
+  },
+  {
+   "id": "hat_chocolateCandy",
+   "name": "Рожок (жвачка)"
+  },
+  {
+   "id": "hat_chocolateMatcha",
+   "name": "Рожок (матча)"
+  },
+  {
+   "id": "hat_doubletophat",
+   "name": "Командир «Топпат»"
+  },
+  {
+   "id": "hat_flowerpot",
+   "name": "Подсадная шляпа"
+  },
+  {
+   "id": "hat_goggles",
+   "name": "Гогглы"
+  },
+  {
+   "id": "hat_hardhat",
+   "name": "Все по БТ"
+  },
+  {
+   "id": "hat_Heart",
+   "name": "Меньше трех"
+  },
+  {
+   "id": "hat_military",
+   "name": "Ополченец"
+  },
+  {
+   "id": "hat_MilitaryWinter",
+   "name": "Ополченец (арктический)"
+  },
+  {
+   "id": "hat_police",
+   "name": "Полицейский-офицер"
+  },
+  {
+   "id": "hat_paperhat",
+   "name": "Оригами"
+  },
+  {
+   "id": "hat_partyhat",
+   "name": "Праздничный колпак"
+  },
+  {
+   "id": "hats_newyears2018",
+   "name": "Новый год — 2019"
+  },
+  {
+   "id": "hat_pk01_BaseballCap",
+   "name": "Бейсболка"
+  },
+  {
+   "id": "hat_pk02_Crown",
+   "name": "Венценосец"
+  },
+  {
+   "id": "hat_pk02_Eyebrows",
+   "name": "Брови Stickmin"
+  },
+  {
+   "id": "hat_pk02_HaloHat",
+   "name": "Невинность"
+  },
+  {
+   "id": "hat_pk02_HeroCap",
+   "name": "Лесной воин"
+  },
+  {
+   "id": "hat_pk02_PipCap",
+   "name": "Крошка Джим"
+  },
+  {
+   "id": "hat_pk02_PlungerHat",
+   "name": "Засор"
+  },
+  {
+   "id": "hat_pk02_ScubaHat",
+   "name": "Подводное устройство"
+  },
+  {
+   "id": "hat_pk02_StickminHat",
+   "name": "Наездник Stickmin"
+  },
+  {
+   "id": "hat_pk02_StrawHat",
+   "name": "Побег из Сахары"
+  },
+  {
+   "id": "hat_pk02_TenGallonHat",
+   "name": "Десять галлонов"
+  },
+  {
+   "id": "hat_pk02_ThirdEyeHat",
+   "name": "Третий глаз"
+  },
+  {
+   "id": "hat_pk02_ToiletPaperHat",
+   "name": "Последний рулон"
+  },
+  {
+   "id": "hat_pk02_Toppat",
+   "name": "Новый шеф"
+  },
+  {
+   "id": "hat_pk03_Fedora",
+   "name": "Федорательно"
+  },
+  {
+   "id": "hat_pk03_Goggles",
+   "name": "Безопасность — потом"
+  },
+  {
+   "id": "hat_pk03_StrapHat",
+   "name": "Садовник"
+  },
+  {
+   "id": "hat_pk04_Antenna",
+   "name": "Плохой прием"
+  },
+  {
+   "id": "hat_pk04_Balloon",
+   "name": "А ты хочешь шарик?"
+  },
+  {
+   "id": "hat_pk04_Banana",
+   "name": "Шкурка"
+  },
+  {
+   "id": "hat_BananaGreen",
+   "name": "Кожура (незрелая)"
+  },
+  {
+   "id": "hat_BananaPurple",
+   "name": "Кожура (грибная)"
+  },
+  {
+   "id": "hat_pk04_Bandana",
+   "name": "Кхе"
+  },
+  {
+   "id": "hat_pk04_Beanie",
+   "name": "Лыжная шапка"
+  },
+  {
+   "id": "hat_pk04_Bear",
+   "name": "Мишутка"
+  },
+  {
+   "id": "hat_pk04_BirdNest",
+   "name": "Два яйца в гнезде"
+  },
+  {
+   "id": "hat_pk04_Chef",
+   "name": "Меня зовут Шеф"
+  },
+  {
+   "id": "hat_ChefWhiteBlue",
+   "name": "Меня зовут Шеф (белый халат)"
+  },
+  {
+   "id": "hat_pk04_DoRag",
+   "name": "Флибустьер-р-р"
+  },
+  {
+   "id": "hat_pk04_Fez",
+   "name": "Феска"
+  },
+  {
+   "id": "hat_pk04_GeneralHat",
+   "name": "Генеральная мысль"
+  },
+  {
+   "id": "hat_captain",
+   "name": "Кепи-тан"
+  },
+  {
+   "id": "hat_pk04_HunterCap",
+   "name": "Дурилка"
+  },
+  {
+   "id": "hat_pk04_JungleHat",
+   "name": "В укрытие"
+  },
+  {
+   "id": "hat_pk04_Pompadour",
+   "name": "Помпезный помпадур"
+  },
+  {
+   "id": "hat_pk04_RamHorns",
+   "name": "Овен"
+  },
+  {
+   "id": "hat_pk04_Slippery",
+   "name": "Осторожно, мокрый пол"
+  },
+  {
+   "id": "hat_mira_sign_blue",
+   "name": "Осторожно, мокрый пол (синий)"
+  },
+  {
+   "id": "hat_pk04_Snowman",
+   "name": "Снегоастронавт"
+  },
+  {
+   "id": "hat_pk04_Vagabond",
+   "name": "Таинственный бродяга"
+  },
+  {
+   "id": "hat_pk05_Cheese",
+   "name": "Честер любит"
+  },
+  {
+   "id": "hat_cheeseSwiss",
+   "name": "Честер любит (швейцарский)"
+  },
+  {
+   "id": "hat_cheeseBleu",
+   "name": "Честер любит (дорблю)"
+  },
+  {
+   "id": "hat_cheeseMoldy",
+   "name": "Честер любит (раклет)"
+  },
+  {
+   "id": "hat_pk05_Cherry",
+   "name": "Вишенка на торте"
+  },
+  {
+   "id": "hat_cherryPink",
+   "name": "Вишенка на торте (розовая)"
+  },
+  {
+   "id": "hat_cherryOrange",
+   "name": "Вишенка на торте (черешня)"
+  },
+  {
+   "id": "hat_pk05_Egg",
+   "name": "Потряйцающе"
+  },
+  {
+   "id": "hat_eggYellow",
+   "name": "Потряйцающе (глазунья)"
+  },
+  {
+   "id": "hat_pk05_Fedora",
+   "name": "Вечер в стиле нуар"
+  },
+  {
+   "id": "hat_pk05_Flamingo",
+   "name": "Надувной фламинго"
+  },
+  {
+   "id": "hat_pk05_FlowerPin",
+   "name": "Флорист"
+  },
+  {
+   "id": "hat_pk05_Helmet",
+   "name": "Рыцарь"
+  },
+  {
+   "id": "hat_pk05_Plant",
+   "name": "Побег"
+  },
+  {
+   "id": "hat_Ponytail",
+   "name": "Блонди"
+  },
+  {
+   "id": "hat_Rubberglove",
+   "name": "Вперчатляющая шапка"
+  },
+  {
+   "id": "hat_russian",
+   "name": "Ушанка Стены"
+  },
+  {
+   "id": "hat_stethescope",
+   "name": "Ну что там, доктор?"
+  },
+  {
+   "id": "hat_tophat",
+   "name": "Рядовой «Топпат»"
+  },
+  {
+   "id": "hat_towelwizard",
+   "name": "Заклинатель ванной"
+  },
+  {
+   "id": "hat_Unicorn",
+   "name": "Волшебный рог"
+  },
+  {
+   "id": "hat_viking",
+   "name": "Викинг"
+  },
+  {
+   "id": "hat_wallcap",
+   "name": "Кепка Стены"
+  },
+  {
+   "id": "hat_pk04_CCC",
+   "name": "Контроль хаоса"
+  },
+  {
+   "id": "hat_whitetophat",
+   "name": "«Топпат» в белом"
+  },
+  {
+   "id": "hat_Zipper",
+   "name": "Костюм члена экипажа"
+  }
+ ],
+ "skins": [
+  {
+   "id": "skin_None",
+   "name": "Нет"
+  },
+  {
+   "id": "skin_ApronGreen",
+   "name": "Выдача заказа (латте)"
+  },
+  {
+   "id": "skin_ChefBlue",
+   "name": "Что на обед? (синий)"
+  },
+  {
+   "id": "skin_ChefRed",
+   "name": "Что на обед?"
+  },
+  {
+   "id": "skin_Bushskin",
+   "name": "Скрытн."
+  },
+  {
+   "id": "skin_BusinessFemskin",
+   "name": "Юбка в деловом стиле"
+  },
+  {
+   "id": "skin_BusinessFem-Tanskin",
+   "name": "Юбка в деловом стиле (бежевый)"
+  },
+  {
+   "id": "skin_BusinessFem-Aquaskin",
+   "name": "Юбка в деловом стиле (бирюзовый)"
+  },
+  {
+   "id": "skin_Hazmat-Blackskin",
+   "name": "Химстронавт (черный)"
+  },
+  {
+   "id": "skin_Hazmat-Blueskin",
+   "name": "Химстронавт (синий)"
+  },
+  {
+   "id": "skin_Hazmat-Greenskin",
+   "name": "Химстронавт (зеленый)"
+  },
+  {
+   "id": "skin_Hazmat-Pinkskin",
+   "name": "Химстронавт (розовый)"
+  },
+  {
+   "id": "skin_Hazmat-Redskin",
+   "name": "Химстронавт (красный)"
+  },
+  {
+   "id": "skin_Hazmat-Whiteskin",
+   "name": "Химстронавт (белый)"
+  },
+  {
+   "id": "skin_SweaterYellowskin",
+   "name": "Уютный свитер (желтый)"
+  },
+  {
+   "id": "skin_JacketPurpleskin",
+   "name": "Куртка полярника (фиолетовый)"
+  },
+  {
+   "id": "skin_Astro",
+   "name": "Астроневт"
+  },
+  {
+   "id": "skin_Capt",
+   "name": "Летное удостоверение"
+  },
+  {
+   "id": "skin_Mech",
+   "name": "Сейчас починим"
+  },
+  {
+   "id": "skin_Military",
+   "name": "Костюм офицера"
+  },
+  {
+   "id": "skin_Police",
+   "name": "Офицер полиции"
+  },
+  {
+   "id": "skin_Science",
+   "name": "Научная теория"
+  },
+  {
+   "id": "skin_SuitB",
+   "name": "При параде"
+  },
+  {
+   "id": "skin_SuitW",
+   "name": "Эффектность"
+  },
+  {
+   "id": "skin_Wall",
+   "name": "Охраняя Стену"
+  }
+ ],
+ "visors": [
+  {
+   "id": "visor_EmptyVisor",
+   "name": "Нет"
+  },
+  {
+   "id": "visor_slothMask",
+   "name": "Двузначный ленивец"
+  },
+  {
+   "id": "visor_mira_card_blue",
+   "name": "Пропуск (синий)"
+  },
+  {
+   "id": "visor_mira_card_red",
+   "name": "Пропуск (красный)"
+  },
+  {
+   "id": "visor_mira_glasses",
+   "name": "Очки"
+  },
+  {
+   "id": "visor_mira_mask_red",
+   "name": "Защита от токсинов (красный)"
+  },
+  {
+   "id": "visor_mira_mask_white",
+   "name": "Защита от токсинов (белый)"
+  },
+  {
+   "id": "visor_mira_mask_purple",
+   "name": "Защита от токсинов (фиолетовый)"
+  },
+  {
+   "id": "visor_mira_mask_green",
+   "name": "Защита от токсинов (зеленый)"
+  },
+  {
+   "id": "visor_mira_mask_blue",
+   "name": "Защита от токсинов (синий)"
+  },
+  {
+   "id": "visor_mira_mask_black",
+   "name": "Защита от токсинов (черный)"
+  },
+  {
+   "id": "visor_pk01_FredVisor",
+   "name": "Идеальный вратарь"
+  },
+  {
+   "id": "visor_pk01_PaperMaskVisor",
+   "name": "Защищен"
+  },
+  {
+   "id": "visor_pk01_PlagueVisor",
+   "name": "Чума"
+  },
+  {
+   "id": "visor_lollipopLemon",
+   "name": "Леденец (ананас)"
+  },
+  {
+   "id": "visor_lollipopLime",
+   "name": "Леденец (кислое яблоко)"
+  },
+  {
+   "id": "visor_lollipopCrew",
+   "name": "Леденец (цвет экипажа)"
+  },
+  {
+   "id": "visor_pk01_AngeryVisor",
+   "name": "з л о б а"
+  },
+  {
+   "id": "visor_pk01_DumStickerVisor",
+   "name": "На заметку"
+  },
+  {
+   "id": "visor_Stickynote_Purple",
+   "name": "На заметку (фиол.)"
+  }
+ ],
+ "pets": [
+  {
+   "id": "pet_EmptyPet",
+   "name": "Нет"
+  },
+  {
+   "id": "pet_Bush",
+   "name": "Кустик"
+  },
+  {
+   "id": "pet_Snow",
+   "name": "Снежок"
+  }
+ ],
+ "nameplates": [
+  {
+   "id": "nameplate_NoPlate",
+   "name": "Нет"
+  },
+  {
+   "id": "nameplate_Croissant",
+   "name": "Круассан упал"
+  },
+  {
+   "id": "nameplate_Lemon",
+   "name": "Не делай кислое лицо"
+  },
+  {
+   "id": "nameplate_Orange",
+   "name": "Заводной апельсин"
+  },
+  {
+   "id": "nameplate_Mira_Cafeteria",
+   "name": "Сегодня в меню: сок «Пицца»"
+  },
+  {
+   "id": "nameplate_Mira_Glass",
+   "name": "Небо под ногами"
+  },
+  {
+   "id": "nameplate_Mira_Tiles",
+   "name": "Оружейный улей"
+  },
+  {
+   "id": "nameplate_Mira_Vines",
+   "name": "Так чья эта лоза?"
+  },
+  {
+   "id": "nameplate_Mira_Wood",
+   "name": "Одревенеть можно"
+  },
+  {
+   "id": "nameplate_Polus_Colors",
+   "name": "Палитра Polus"
+  },
+  {
+   "id": "nameplate_Polus_Planet",
+   "name": "Планета Polus"
+  },
+  {
+   "id": "nameplate_Polus_Snow",
+   "name": "Снежные земли"
+  }
+ ],
+ "current": {
+  "hat": "hat_pkHW01_Pumpkin",
+  "skin": "skin_None",
+  "visor": "visor_EmptyVisor",
+  "pet": "pet_EmptyPet",
+  "nameplate": "nameplate_Orange"
+ }
+}
