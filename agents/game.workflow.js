@@ -46,7 +46,7 @@ for (const p of players) {
 
 // The same command runs on the PC directly and on the laptop through ssh.
 const PY = 'D:/AmongUs-tools/mcp/.venv/Scripts/python.exe'
-const WHERE = 'Узнай машину: $env:COMPUTERNAME. На STAND-PC (это ПК со стендом) запускай команду напрямую; на любой другой — через ssh pc "<команда>" (ssh только из инструмента PowerShell).'
+const WHERE = 'Узнай машину: Test-Path D:/AmongUs-tools/mcp/server.py. Есть (это ПК со стендом) — запускай команду напрямую; нет — через ssh pc "<команда>" (ssh только из инструмента PowerShell).'
 
 if (setup) {
   phase('Setup')
