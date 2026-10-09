@@ -6,3 +6,8 @@ obj/
 *.user
 video/
 __pycache__/
+
+# Claude working files (kept local, not published)
+CLAUDE.md
+docs/pc-start-prompt.md
+.claude/

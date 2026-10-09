@@ -1,0 +1,24 @@
+# Как поднять стенд
+
+Проект собран под один конкретный ПК, установщика нет. Здесь — общий порядок, детали в скриптах.
+
+## Что нужно
+- Among Us (Epic Games Store, проверено на v17.4) и [Legendary](https://github.com/derrod/legendary) для запуска без автообновления.
+- Отдельная копия папки игры для модов (`D:\AmongUs-mod`) с BepInEx 6.0.0-be IL2CPP x64 и Reactor 2.5.x.
+- .NET SDK для сборки мода, Python 3 для MCP-сервера, Node.js для скриптов оркестра, Claude Code.
+
+## Шаги
+1. **Мод.** Собрать `mod/AUBridge` (`dotnet build -c Release`). Ссылочные сборки игры (`mod/refs/`) в репо не лежат: их даёт BepInEx (interop) после первого запуска игры с модом. Готовый `AUBridge.dll` положить в `BepInEx\plugins\`.
+2. **Инструменты стенда** в `D:\AmongUs-tools`: скрипты из `scripts/` (`launch-bridge.ps1`, `stop-all.ps1`, `setup_game.py`, `end-game.py`, `label-game.py`, `bridgecli.py`), MCP-сервер из `mcp/` в виртуальном окружении `mcp\.venv` (`pip install -r mcp/requirements.txt`).
+3. **Запуск копий.** `launch-bridge.ps1` создаёт токены мостов и ключи мест, запускает копию 1 (хост, окно человека), ждёт лобби и запускает остальные пачками. Каждой копии передаются `--aub-id`, режим (host/join), имя, цвет, облик и токен.
+4. **Агент-игрок.** Скопировать описание из [au-player-agent.md](au-player-agent.md) в `.claude/agents/au-player.md`. Без этого игроки получат все инструменты сессии, и игра перестанет быть честной.
+5. **MCP.** `.mcp.json` подключает сервер `au` через `scripts/au-mcp.cmd`: на машине со стендом напрямую, на другой — через `ssh pc`.
+
+## Партия
+1. `setup_game.py --no-start --impostors 2` ждёт всех в лобби и один раз выставляет настройки.
+2. `node agents/game-args.mjs` раскладывает брифы, называет партию на всех местах и печатает аргументы для Workflow.
+3. Workflow `agents/game.workflow.js` с этими аргументами: игроки ждут в лобби.
+4. Человек жмёт «Старт» сам и при желании меняет настройки.
+5. После игры летописец пишет `games/<id>.md` и обновляет `agents/memory/`.
+
+Досрочно: `end-game.py` (шлёт `abort` всем местам), потом `stop-all.ps1`.
