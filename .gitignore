@@ -6,3 +6,5 @@ obj/
 *.user
 video/
 __pycache__/
+
+docs/pc-start-prompt.md
