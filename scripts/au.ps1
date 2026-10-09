@@ -1,6 +1,6 @@
 # Клиент игрока: один JSON-запрос -> ssh pc -> mcp/cli.py (тот же код проверки ключа, что и у MCP-сервера) -> JSON-ответ.
 # Вызов (из PowerShell, оператор & сохраняет кавычки и кириллицу):
-#   & "C:\Users\<user>\Claude work\Among Us\scripts\au.ps1" '{"op":"wait","player":3,"key":"K","timeout":50,"since":0}'
+#   & ".\scripts\au.ps1" '{"op":"wait","player":3,"key":"K","timeout":50,"since":0}'
 # Через "powershell -File" Windows PowerShell 5.1 съедает двойные кавычки в аргументе, поэтому так не вызывай.
 # Запрос можно подать и через конвейер:  '{"op":"state",...}' | & ...\au.ps1
 param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Json,

@@ -46,7 +46,7 @@ if (!gameId) {
   gameId = day + '-g' + (Math.max(0, ...used) + 1);
 }
 
-const onPc = String(process.env.COMPUTERNAME || '').toUpperCase() === 'STAND-PC';
+const onPc = fs.existsSync('D:/AmongUs-tools/mcp/server.py'); // the stand PC; anywhere else we go through `ssh pc`
 const AU = 'D:/AmongUs-tools';
 const ssh = (...a) => execFileSync('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', 'pc', ...a], { encoding: 'utf8' });
 
