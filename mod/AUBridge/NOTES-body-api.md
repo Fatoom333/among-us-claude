@@ -30,7 +30,7 @@ foreach (var p in PlayerControl.AllPlayerControls) if (p!=me && !p.Data.Disconne
 - **Данные для графа Skeld:** готового нет. Источники в рантайме:
   `ShipStatus.Instance.AllRooms/FastRooms` (центры `roomArea.bounds.center`), `AllConsoles` (позиции задач, `Console.Room`), `AllVents` (`Vent.Id`, `Left/Right/Center`), `AllDoors` (`OpenableDoor.Id/Room/IsOpen`, `PlainDoor.Open`, `myCollider`), `InitialSpawnCenter`, `MeetingSpawnCenter`, `EmergencyButton`.
 - **Предложение (надёжнее и без внешних зависимостей):** на старте партии один раз построить сетку проходимости: шаг 0.25–0.3, область = bounds всех `roomArea` + запас; клетка проходима, если `!PhysicsHelpers.CircleContains(cell, radius≈0.25, Constants.ShipOnlyMask)` (радиус сверить с `PlayerControl.Collider`); соседние клетки связывать только если `!AnythingBetween(a,b,Constants.ShipOnlyMask,false)`; A* по сетке, упрощение пути (string-pulling через `AnythingBetween`), кеш в JSON рядом с плагином. Закрытые двери (`!door.IsOpen`) учитывать динамически повторной проверкой отрезка. Это вариант Б из SPEC без ручной разметки.
-- PathfindingAPI (CallOfCreator): по research-2026-10-08 готовый A*, но нужна совместимость с 17.4 и Reactor у всех (он у нас есть). Не проверен; брать как запасной.
+- PathfindingAPI (CallOfCreator): по docs/VERSIONS.md готовый A*, но нужна совместимость с 17.4 и Reactor у всех (он у нас есть). Не проверен; брать как запасной.
 - Застревание: сравнивать `body.position` за 2 с; Skeld без лестниц/платформ (`Ladder` бывает только на Airship) — на Skeld они не нужны.
 
 ## 3. Задачи
